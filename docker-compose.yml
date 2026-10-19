@@ -1,0 +1,32 @@
+name: jobs
+
+services:
+  app:
+    container_name: jobs-app
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${APP_PORT:-8096}:80"
+    volumes:
+      - ./:/var/www/html
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  node:
+    image: node:24-bookworm-slim
+    profiles: [tools]
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    working_dir: /var/www/html
+    environment:
+      npm_config_cache: /tmp/npm-cache
+    volumes:
+      - ./:/var/www/html
+    command: ["npm", "run", "build"]
