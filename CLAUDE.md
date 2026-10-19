@@ -1,5 +1,7 @@
 # Jobs
 
+Delivery: local-only (no remote). Commit on the default branch; nothing is pushed. (Its only branch is `local`.)
+
 Private single-user job tracker. Laravel 13, PHP 8.5, SQLite, Livewire 4 single-file class components, free Flux UI 2, Tailwind 4/Vite. Read `AGENTS.md` and `.claude/project.md` for operational rules; `README.md` documents setup and security configuration.
 
 Business logic belongs in typed actions; third-party IO belongs in services called by actions. New PHP files use strict types. Related database writes use transactions. User-facing copy belongs in `lang/en/`. Components live under `resources/views/pages/`; the canonical layout is `layouts.app`.

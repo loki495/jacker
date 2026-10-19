@@ -1,5 +1,7 @@
 # Jobs project instructions
 
+Delivery: local-only (no remote). Commit on the default branch; nothing is pushed. (Its only branch is `local`.)
+
 Read `CLAUDE.md` and `.claude/project.md` before substantive work. This is a Laravel/Livewire project. Follow the global instructions in `~/dotfiles/ai/CLAUDE.md` when available.
 
 - Run PHP, Composer, Artisan, and quality tools in `jobs-app`, using `docker exec --user www-data jobs-app ...`.
