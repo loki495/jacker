@@ -18,8 +18,9 @@ final readonly class JobPageFetcher
     public function fetch(string $url): array
     {
         for ($hop = 0; $hop <= (int) config('linkcheck.max_redirects'); $hop++) {
-            $this->guard->assertPublic($url);
+            $addresses = $this->guard->assertPublic($url);
             $response = Http::withoutRedirecting()
+                ->withOptions(['stream' => true, 'curl' => [CURLOPT_RESOLVE => [$this->pin($url, $addresses)]]])
                 ->timeout((int) config('linkcheck.timeout'))
                 ->withUserAgent((string) config('linkcheck.user_agent'))
                 ->accept('text/html,application/xhtml+xml')
@@ -31,10 +32,23 @@ final readonly class JobPageFetcher
                 continue;
             }
 
-            return ['status' => $response->status(), 'body' => substr($response->body(), 0, (int) config('linkcheck.max_bytes')), 'url' => $url];
+            return ['status' => $response->status(), 'body' => $response->toPsrResponse()->getBody()->read((int) config('linkcheck.max_bytes')), 'url' => $url];
         }
 
         throw new \RuntimeException(__('jobs.link_too_many_redirects'));
+    }
+
+    /**
+     * Pins the connection to an address the guard vetted so the HTTP client cannot resolve the host again.
+     *
+     * @param  list<string>  $addresses
+     */
+    private function pin(string $url, array $addresses): string
+    {
+        $parts = parse_url($url);
+        $port = $parts['port'] ?? (($parts['scheme'] ?? 'https') === 'http' ? 80 : 443);
+
+        return trim((string) $parts['host'], '[]').':'.$port.':'.$addresses[0];
     }
 
     private function absolute(string $base, string $location): string

@@ -9,6 +9,7 @@ use App\Enums\LinkResult;
 use App\Jobs\ProcessLinkCheck;
 use App\Models\LinkCheck;
 use App\Models\Opportunity;
+use App\Services\JobPageFetcher;
 use App\Services\JobPostingParser;
 use App\Services\UrlGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,7 +37,9 @@ function page(array $data = POSTING, bool $graph = false): string
 }
 
 beforeEach(function (): void {
-    app()->instance(UrlGuard::class, new UrlGuard(fn (string $host): array => $host === 'internal.test' ? ['192.168.1.5'] : ['93.184.216.34']));
+    app()->instance(UrlGuard::class, new UrlGuard(fn (string $host): array => match ($host) {
+        'internal.test' => ['192.168.1.5'], 'mixed.test' => ['93.184.216.34', '10.0.0.1'], default => ['93.184.216.34']
+    }));
 });
 
 it('parses JobPosting data including graphs and ignores pages without it', function (): void {
@@ -56,7 +59,7 @@ it('refuses private addresses, odd schemes and unresolvable hosts without fetchi
     app(RunLinkCheck::class)->handle($check);
     expect($check->refresh()->status)->toBe(LinkCheckStatus::Failed)->and($check->result)->toBe(LinkResult::Error)->and($check->message)->not->toBeEmpty();
     Http::assertNothingSent();
-})->with(['http://internal.test/job', 'http://127.0.0.1/job', 'http://[::1]/job', 'ftp://example.com/job', 'file:///etc/passwd']);
+})->with(['http://internal.test/job', 'http://127.0.0.1/job', 'http://[::1]/job', 'http://[::ffff:127.0.0.1]/job', 'http://100.64.0.1/job', 'http://198.18.0.1/job', 'http://[64:ff9b::7f00:1]/job', 'http://mixed.test/job', 'http://[fd00::1]/job', 'ftp://example.com/job', 'file:///etc/passwd']);
 
 it('checks redirect hops against the guard', function (): void {
     Http::fake(['https://jobs.example/start' => Http::response('', 302, ['Location' => 'http://internal.test/admin'])]);
@@ -86,6 +89,13 @@ it('flags dead and blocked links without touching job data', function (int $stat
         ->and($job->refresh()->link_status)->toBe($result->value)->and($job->title)->toBe('Same')->and($job->status->value)->not->toBe('closed');
 })->with([[404, LinkResult::Dead, LinkCheckStatus::Done], [410, LinkResult::Dead, LinkCheckStatus::Done], [403, LinkResult::Blocked, LinkCheckStatus::Done], [429, LinkResult::Blocked, LinkCheckStatus::Done], [500, LinkResult::Error, LinkCheckStatus::Failed]]);
 
+it('reads at most the configured number of bytes of a page', function (): void {
+    config(['linkcheck.max_bytes' => 10]);
+    Http::fake(['*' => Http::response(str_repeat('a', 5000))]);
+    $page = app(JobPageFetcher::class)->fetch('https://jobs.example/big');
+    expect(strlen($page['body']))->toBeLessThanOrEqual(10);
+});
+
 it('reports a live page with no structured data as done with nothing filled', function (): void {
     Http::fake(['*' => Http::response('<html>plain</html>')]);
     $job = Opportunity::factory()->create(['application_url' => 'https://jobs.example/3']);
@@ -95,7 +105,7 @@ it('reports a live page with no structured data as done with nothing filled', fu
 });
 
 it('creates a listing from a link, rejects duplicates and pages without a company', function (): void {
-    Http::fake(['https://jobs.example/new' => Http::response(page()), 'https://jobs.example/bare' => Http::response(page(['@type' => 'JobPosting', 'title' => 'No company']))]);
+    Http::fake(['https://jobs.example/new' => fn () => Http::response(page()), 'https://jobs.example/bare' => Http::response(page(['@type' => 'JobPosting', 'title' => 'No company']))]);
     $queue = app(QueueLinkChecks::class);
     $result = $queue->forUrls(['https://jobs.example/new', 'https://jobs.example/new', 'not a url', 'ftp://x.example/a', 'https://jobs.example/bare']);
     expect($result['queued'])->toBe(2)->and($result['rejected'])->toBe(['not a url', 'ftp://x.example/a']);
