@@ -24,6 +24,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $salary_min
  * @property string|null $salary_max
  * @property PayPeriod|null $pay_period
+ * @property string|null $link_status
+ * @property Carbon|null $link_checked_at
+ * @property string|null $application_url
  * @property OpportunityStatus $status
  * @property bool $has_applied
  * @property Carbon|null $applied_at
@@ -51,7 +54,7 @@ class Opportunity extends Model
             'salary_min' => 'decimal:2', 'salary_max' => 'decimal:2',
             'has_applied' => 'boolean', 'applied_at' => 'date',
             'deadline' => 'date', 'follow_up_at' => 'date',
-            'archived_at' => 'datetime', 'extra_fields' => 'array',
+            'archived_at' => 'datetime', 'link_checked_at' => 'datetime', 'extra_fields' => 'array',
             'skill_match' => 'integer', 'desirability' => 'integer',
         ];
     }

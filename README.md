@@ -53,9 +53,13 @@ The last trusted proxy must supply the client-facing HTTPS scheme and port, incl
 
 SQLite defaults to `database/database.sqlite`. Back up the database together with `.env` and persistent uploads using a consistent SQLite backup process; test restores before relying on backups. Do not commit the database, secrets, or personal job data.
 
+The default order is skill match plus desirability, highest first.
+
+**Link checks** (sidebar) fetch an application page in the background to see whether it is still live (404/410 are flagged as gone; sites that refuse automated requests, such as LinkedIn, are flagged as blocked) and fill in only the fields that are still empty from the page's structured job data (schema.org JobPosting). Nothing existing is overwritten and a dead link never changes a job's status. Check one job from its page, all active jobs from the log page, or paste job page links on the log page to create new listings from them. Checks are spaced a few seconds apart (`LINKCHECK_SPACING`), never run on a schedule, and refuse private or reserved network addresses.
+
 Set `APP_TIMEZONE` to your local IANA timezone for status-history timestamps and daily follow-up boundaries. The portable default is `UTC`; tests explicitly use UTC and separately exercise timezone conversions.
 
-Mail uses the log driver and queues run synchronously. No external integrations or notifications are configured.
+Mail uses the log driver. Queues use the database driver and the `queue` compose service (`php artisan queue:work`) processes link checks; with `QUEUE_CONNECTION=sync` they run inline instead. Link checks are the only outbound requests, to the job pages you give or save. No notifications are configured.
 
 ## Quality checks
 

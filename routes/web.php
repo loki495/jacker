@@ -10,5 +10,6 @@ Route::livewire('/opportunities/create', 'pages::editor')->name('opportunities.c
 Route::livewire('/opportunities/{opportunity}/edit', 'pages::editor')->name('opportunities.edit');
 Route::livewire('/opportunities/{opportunity}', 'pages::detail')->name('opportunities.show');
 
+Route::livewire('/link-checks', 'pages::link-checks')->name('link-checks');
 Route::livewire('/import', 'pages::import')->name('import');
 Route::get('/export', CsvExportController::class)->name('export');

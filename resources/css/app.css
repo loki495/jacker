@@ -40,3 +40,4 @@
 }
 
 .detail-list{margin:0;padding-left:18px;font-size:12px;line-height:1.9;color:#476156;display:grid;gap:2px}.detail-list li::marker{color:#9cc3b2}.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.link-cell{max-width:320px;overflow-wrap:anywhere}.link-running{background:#fcf0db;color:#a27d36}.link-done{background:#def2e4;color:#34865c}.link-failed{background:#f4eaea;color:#98666a}

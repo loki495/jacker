@@ -20,6 +20,21 @@ services:
       timeout: 5s
       retries: 3
 
+  queue:
+    container_name: jobs-queue
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    restart: unless-stopped
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    working_dir: /var/www/html
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=1", "--max-time=3600"]
+    volumes:
+      - ./:/var/www/html
+
   node:
     image: node:24-bookworm-slim
     profiles: [tools]

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\ArchiveOpportunity;
 use App\Actions\ChangeOpportunityStatus;
+use App\Actions\QueueLinkChecks;
 use App\Enums\OpportunityStatus;
 use App\Models\Opportunity;
 use Livewire\Attributes\Computed;
@@ -37,6 +38,12 @@ new #[Layout('layouts.app')] class extends Component
         unset($this->opportunity);
     }
 
+    public function checkLink(QueueLinkChecks $queue): void
+    {
+        $queued = $queue->forOpportunities(collect([$this->opportunity]));
+        session()->flash('message', $queued > 0 ? __('jobs.link_queued_count', ['count' => $queued]) : __('jobs.link_nothing_queued'));
+    }
+
     public function archive(): void
     {
         app(ArchiveOpportunity::class)->handle($this->opportunity, ! $this->opportunity->archived_at);
@@ -62,6 +69,7 @@ new #[Layout('layouts.app')] class extends Component
     </div><aside class="detail-sidebar">
         <section class="panel detail-panel"><h2>{{ __('jobs.application') }}</h2><flux:select wire:model.live="status" :label="__('jobs.status')">@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select><dl class="detail-facts single"><div><dt>{{ __('jobs.has_applied') }}</dt><dd>{{ $job->has_applied ? __('jobs.yes') : __('jobs.no') }}</dd></div>@foreach(['applied_at','deadline','follow_up_at'] as $field)<div><dt>{{ __('jobs.'.$field) }}</dt><dd>{{ $job->{$field}?->format('M j, Y') ?? __('jobs.unknown') }}</dd></div>@endforeach</dl>
         @foreach(['application_url','company_url'] as $field)@if($job->{$field} && in_array(strtolower(parse_url($job->{$field}, PHP_URL_SCHEME) ?: ''), ['http','https'], true))<a class="external-link" href="{{ $job->{$field} }}" target="_blank" rel="noopener noreferrer">{{ __('jobs.open_'.$field) }} ↗</a>@endif@endforeach
+        @if($job->application_url)<p class="field-hint">@if($job->link_checked_at)<span class="status-badge link-{{ $job->link_status === 'ok' ? 'done' : 'failed' }}">{{ App\Enums\LinkResult::tryFrom((string) $job->link_status)?->label() }}</span> {{ __('jobs.link_last_checked', ['when' => $job->link_checked_at->diffForHumans()]) }}@else{{ __('jobs.link_never_checked') }}@endif</p><button type="button" wire:click="checkLink" class="archive-button" wire:loading.attr="disabled">{{ __('jobs.link_check_one') }}</button>@endif
         </section>
         <section class="panel detail-panel"><h2>{{ __('jobs.rankings') }}</h2>@foreach(['desirability','skill_match'] as $field)<div class="detail-ranking"><span>{{ __('jobs.'.$field) }}</span><strong>{{ $job->{$field} ? $job->{$field}.' / 5' : __('jobs.unscored') }}</strong></div><p class="preserve-text muted">{{ $job->{$field.'_notes'} }}</p>@endforeach</section>
         <section class="panel detail-panel"><h2>{{ __('jobs.status_history') }}</h2><ol class="history">@forelse($job->events as $event)<li><strong>{{ $event->to_status->label() }}</strong><span>{{ $event->created_at->format('M j, Y · g:i a') }}</span></li>@empty<li>{{ __('jobs.no_history') }}</li>@endforelse</ol></section>
