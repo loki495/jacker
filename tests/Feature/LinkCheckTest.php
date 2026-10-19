@@ -9,6 +9,7 @@ use App\Enums\LinkResult;
 use App\Jobs\ProcessLinkCheck;
 use App\Models\LinkCheck;
 use App\Models\Opportunity;
+use App\Services\JobPageFetcher;
 use App\Services\JobPostingParser;
 use App\Services\UrlGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,6 +88,23 @@ it('flags dead and blocked links without touching job data', function (int $stat
     expect($check->refresh()->result)->toBe($result)->and($check->status)->toBe($state)->and($check->http_status)->toBe($status)
         ->and($job->refresh()->link_status)->toBe($result->value)->and($job->title)->toBe('Same')->and($job->status->value)->not->toBe('closed');
 })->with([[404, LinkResult::Dead, LinkCheckStatus::Done], [410, LinkResult::Dead, LinkCheckStatus::Done], [403, LinkResult::Blocked, LinkCheckStatus::Done], [429, LinkResult::Blocked, LinkCheckStatus::Done], [500, LinkResult::Error, LinkCheckStatus::Failed]]);
+
+it('builds the address pin from the normalised scheme, host and port', function (string $url, string $expected): void {
+    $pin = new ReflectionMethod(JobPageFetcher::class, 'pin');
+    expect($pin->invoke(app(JobPageFetcher::class), $url, ['2606:4700::1', '93.184.216.34']))->toBe($expected);
+})->with([
+    ['HTTP://Example.COM/x', 'example.com:80:93.184.216.34'],
+    ['https://example.com/x', 'example.com:443:93.184.216.34'],
+    ['http://example.com:8080/x', 'example.com:8080:93.184.216.34'],
+]);
+
+it('discards a page fetched from an address the guard did not vet', function (): void {
+    $check = new ReflectionMethod(JobPageFetcher::class, 'assertConnectedToVetted');
+    $fetcher = app(JobPageFetcher::class);
+    expect(fn () => $check->invoke($fetcher, '10.0.0.5', ['93.184.216.34']))->toThrow(RuntimeException::class);
+    $check->invoke($fetcher, '93.184.216.34', ['93.184.216.34']);
+    $check->invoke($fetcher, '2606:4700:0:0:0:0:0:1', ['2606:4700::1']);
+});
 
 it('reports a live page with no structured data as done with nothing filled', function (): void {
     Http::fake(['*' => Http::response('<html>plain</html>')]);
