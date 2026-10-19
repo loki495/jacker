@@ -75,7 +75,7 @@ new #[Layout('layouts.app')] class extends Component
             'newest' => $query->latest('created_at'),
             'follow_up' => $query->orderByRaw('follow_up_at IS NULL')->orderBy('follow_up_at'),
             'deadline' => $query->orderByRaw('deadline IS NULL')->orderBy('deadline'),
-            default => $query->orderByRaw('COALESCE(desirability, 0) DESC')->orderByRaw('COALESCE(skill_match, 0) DESC'),
+            default => $query->bestFirst(),
         };
 
         return $query->orderByDesc('id')->paginate(15);
@@ -84,7 +84,7 @@ new #[Layout('layouts.app')] class extends Component
     #[Computed]
     public function nextUp()
     {
-        return Opportunity::query()->whereNull('archived_at')->where('has_applied', false)->whereIn('status', ['saved', 'preparing'])->orderByRaw('COALESCE(desirability, 0) DESC')->orderByRaw('COALESCE(skill_match, 0) DESC')->latest('id')->limit(3)->get();
+        return Opportunity::query()->whereNull('archived_at')->where('has_applied', false)->whereIn('status', ['saved', 'preparing'])->bestFirst()->latest('id')->limit(3)->get();
     }
 
     #[Computed]

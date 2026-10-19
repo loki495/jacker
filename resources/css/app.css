@@ -38,3 +38,5 @@
         font-weight: 600;
     }
 }
+
+.detail-list{margin:0;padding-left:18px;font-size:12px;line-height:1.9;color:#476156;display:grid;gap:2px}.detail-list li::marker{color:#9cc3b2}.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}

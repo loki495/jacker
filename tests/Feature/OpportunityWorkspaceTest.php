@@ -84,3 +84,26 @@ it('preserves imported fields with numeric names during ordinary edits', functio
     Livewire::test('pages::editor', ['opportunity' => $job])->set('form.notes', 'Updated')->call('save')->assertHasNoErrors();
     expect($job->refresh()->extra_fields)->toBe(['0' => 'Imported text']);
 });
+
+it('defaults to the combined fit and want score with unscored jobs last', function (): void {
+    $both = Opportunity::factory()->create(['skill_match' => 4, 'desirability' => 4]);
+    $lopsided = Opportunity::factory()->create(['skill_match' => 5, 'desirability' => 1]);
+    $unknown = Opportunity::factory()->create(['skill_match' => null, 'desirability' => null]);
+    $component = Livewire::test('pages::home');
+    expect($component->get('sort'))->toBe('rank')
+        ->and($component->instance()->opportunities->pluck('id')->all())->toBe([$both->id, $lopsided->id, $unknown->id]);
+});
+
+it('formats pay and splits list fields for people', function (): void {
+    $job = Opportunity::factory()->make(['salary_min' => '125000.00', 'salary_max' => '165000.00', 'currency' => 'USD', 'pay_period' => 'year', 'benefits' => "Medical; dental\n- 401(k) ;; ", 'requirements' => null]);
+    expect($job->payRange())->toBe('$125,000 – $165,000 per year')
+        ->and($job->listItems('benefits'))->toBe(['Medical', 'dental', '401(k)'])
+        ->and($job->listItems('requirements'))->toBe([]);
+    expect(Opportunity::factory()->make(['salary_min' => null, 'salary_max' => null])->payRange())->toBeNull();
+    expect(Opportunity::factory()->make(['salary_min' => '90000.00', 'salary_max' => '90000.00', 'currency' => 'CAD', 'pay_period' => 'unspecified'])->payRange())->toBe('CAD 90,000');
+});
+
+it('renders readable detail sections including empty ones', function (): void {
+    $job = Opportunity::factory()->create(['salary_min' => '100000.00', 'salary_max' => '120000.00', 'currency' => 'USD', 'pay_period' => 'year', 'benefits' => 'Medical; dental', 'requirements' => null]);
+    Livewire::test('pages::detail', ['opportunity' => $job])->assertSee('$100,000 – $120,000 per year')->assertSeeHtml('<li>Medical</li>')->assertSee(__('jobs.nothing_added'));
+});
