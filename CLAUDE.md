@@ -1,4 +1,4 @@
-# Jobs
+# Jacker
 
 Delivery: local-only (no remote). Commit on the default branch; nothing is pushed. (Its only branch is `local`.)
 
@@ -10,6 +10,6 @@ Business logic belongs in typed actions; third-party IO belongs in services call
 
 The application deliberately has no authentication. Trusted network or authenticated proxy access is mandatory; host validation is not authentication. No real external actions or notifications without explicit approval.
 
-Quality gate: Pint → PHPStan level 6 → Rector dry-run → Pest inside `jobs-app`. Rector must remain review-only. Keep tests isolated with the guard before RefreshDatabase traits run.
+Quality gate: Pint → PHPStan level 6 → Rector dry-run → Pest inside `jacker-app`. Rector must remain review-only. Keep tests isolated with the guard before RefreshDatabase traits run.
 
 No commits or pushes are authorized by this file. Public exposure/deployment remains a separate explicit decision.

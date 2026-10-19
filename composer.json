@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "andres/jobs",
+    "name": "loki495/jacker",
     "type": "project",
     "description": "A private single-user job application tracker.",
     "keywords": [
@@ -54,11 +54,11 @@
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ],
-        "pest": "docker exec --user www-data jobs-app ./vendor/bin/pest",
+        "pest": "docker exec --user www-data jacker-app ./vendor/bin/pest",
         "test": "@pest",
-        "pint": "docker exec --user www-data jobs-app ./vendor/bin/pint",
-        "phpstan": "docker exec --user www-data jobs-app ./vendor/bin/phpstan analyse --memory-limit=1G",
-        "rector": "docker exec --user www-data jobs-app ./vendor/bin/rector process --dry-run"
+        "pint": "docker exec --user www-data jacker-app ./vendor/bin/pint",
+        "phpstan": "docker exec --user www-data jacker-app ./vendor/bin/phpstan analyse --memory-limit=1G",
+        "rector": "docker exec --user www-data jacker-app ./vendor/bin/rector process --dry-run"
     },
     "extra": {
         "laravel": {

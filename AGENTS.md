@@ -1,10 +1,10 @@
-# Jobs project instructions
+# Jacker project instructions
 
-Delivery: local-only (no remote). Commit on the default branch; nothing is pushed. (Its only branch is `local`.)
+Delivery: direct push. Remote `origin` is github.com/loki495/jacker (public); `main` mirrors what is published and `local` is the permanent local branch. Confirm the exact remote and branch before every push.
 
 Read `CLAUDE.md` and `.claude/project.md` before substantive work. This is a Laravel/Livewire project. Follow the global instructions in `~/dotfiles/ai/CLAUDE.md` when available.
 
-- Run PHP, Composer, Artisan, and quality tools in `jobs-app`, using `docker exec --user www-data jobs-app ...`.
+- Run PHP, Composer, Artisan, and quality tools in `jacker-app`, using `docker exec --user www-data jacker-app ...`.
 - Preserve the no-login, single-user model. Private network/proxy access is required. Do not expose a public hostname without explicit approval.
 - Use typed action `handle()` methods for business logic, thin Livewire components, enums for fixed values, and transactions for related writes.
 - Use Livewire 4 single-file class components and suitable free Flux components. Avoid paid Flux and duplicate Alpine installations.

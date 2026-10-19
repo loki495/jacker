@@ -1,4 +1,4 @@
-# Jobs
+# Jacker
 
 A private, single-user job application tracker built with Laravel 13, Livewire 4 single-file class components, free Flux UI, Tailwind CSS 4, and SQLite.
 
@@ -27,10 +27,10 @@ cp .env.example .env
 chmod 600 .env
 docker compose build app
 docker compose up -d app
-docker exec --user www-data jobs-app composer install --no-interaction
-docker exec --user www-data jobs-app php artisan key:generate
+docker exec --user www-data jacker-app composer install --no-interaction
+docker exec --user www-data jacker-app php artisan key:generate
 touch database/database.sqlite
-docker exec --user www-data jobs-app php artisan migrate --force
+docker exec --user www-data jacker-app php artisan migrate --force
 docker compose run --rm node npm ci
 docker compose run --rm node npm run build
 ```
@@ -66,12 +66,12 @@ Mail uses the log driver. Queues use the database driver and the `queue` compose
 Run in this order:
 
 ```sh
-docker exec --user www-data jobs-app ./vendor/bin/pint
-docker exec --user www-data jobs-app ./vendor/bin/phpstan analyse --memory-limit=1G
-docker exec --user www-data jobs-app ./vendor/bin/rector process --dry-run
-docker exec --user www-data jobs-app ./vendor/bin/pest
+docker exec --user www-data jacker-app ./vendor/bin/pint
+docker exec --user www-data jacker-app ./vendor/bin/phpstan analyse --memory-limit=1G
+docker exec --user www-data jacker-app ./vendor/bin/rector process --dry-run
+docker exec --user www-data jacker-app ./vendor/bin/pest
 ```
 
-Composer wrappers (`composer pint`, `composer phpstan`, `composer rector`, `composer pest`) call the same `docker exec jobs-app` commands if host Composer is available. Composer lifecycle hooks run PHP directly in the current environment, so ordinary installs inside Docker do not require Docker-in-Docker. Rector is review-only; inspect proposed changes and edit manually.
+Composer wrappers (`composer pint`, `composer phpstan`, `composer rector`, `composer pest`) call the same `docker exec jacker-app` commands if host Composer is available. Composer lifecycle hooks run PHP directly in the current environment, so ordinary installs inside Docker do not require Docker-in-Docker. Rector is review-only; inspect proposed changes and edit manually.
 
 Pest uses SQLite `:memory:`. `tests/TestCase.php` checks the testing environment, default SQLite connection, in-memory database, and absence of URL/read/write overrides before Laravel initializes `RefreshDatabase`. Clear any application config cache before tests; the guard rejects cached production settings. Never point tests at the application's SQLite file. Tests cover opportunity actions, lifecycle and validation, Livewire screens, CSV import/export, rejected hosts, missing routes, and database guard failures. Browser checks must use a separate disposable database.

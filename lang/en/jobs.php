@@ -8,7 +8,7 @@ return [
     'field_value' => 'Value',
     'add_field' => 'Add field',
     'remove_field' => 'Remove',
-    'brand' => 'jobfolio',
+    'brand' => 'Jacker',
     'workspace' => 'Workspace',
     'navigation' => 'Navigation',
     'overview' => 'Overview',
