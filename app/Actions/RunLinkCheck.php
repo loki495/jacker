@@ -10,6 +10,7 @@ use App\Models\LinkCheck;
 use App\Models\Opportunity;
 use App\Services\JobPageFetcher;
 use App\Services\JobPostingParser;
+use GuzzleHttp\Exception\TransferException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -32,7 +33,7 @@ final readonly class RunLinkCheck
         $opportunity = $check->opportunity;
         try {
             $page = $this->fetcher->fetch($check->url);
-        } catch (InvalidArgumentException|ConnectionException|\RuntimeException $exception) {
+        } catch (InvalidArgumentException|ConnectionException|TransferException|\RuntimeException $exception) {
             $this->finish($check, $opportunity, LinkCheckStatus::Failed, LinkResult::Error, $exception->getMessage());
 
             return;

@@ -216,6 +216,7 @@ return [
     'link_unsafe_scheme' => 'Only http and https links can be checked.',
     'link_unresolvable' => 'The address could not be resolved.',
     'link_unsafe_address' => 'The address points to a private or reserved network, so it was not fetched.',
+    'link_too_large' => 'The page is larger than the allowed size, so it was not read.',
     'link_too_many_redirects' => 'The link redirected too many times.',
     'link_http' => 'The site answered HTTP :status.',
     'link_no_data' => 'The page has no structured job data to read.',

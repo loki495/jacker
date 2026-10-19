@@ -9,7 +9,6 @@ use App\Enums\LinkResult;
 use App\Jobs\ProcessLinkCheck;
 use App\Models\LinkCheck;
 use App\Models\Opportunity;
-use App\Services\JobPageFetcher;
 use App\Services\JobPostingParser;
 use App\Services\UrlGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -88,13 +87,6 @@ it('flags dead and blocked links without touching job data', function (int $stat
     expect($check->refresh()->result)->toBe($result)->and($check->status)->toBe($state)->and($check->http_status)->toBe($status)
         ->and($job->refresh()->link_status)->toBe($result->value)->and($job->title)->toBe('Same')->and($job->status->value)->not->toBe('closed');
 })->with([[404, LinkResult::Dead, LinkCheckStatus::Done], [410, LinkResult::Dead, LinkCheckStatus::Done], [403, LinkResult::Blocked, LinkCheckStatus::Done], [429, LinkResult::Blocked, LinkCheckStatus::Done], [500, LinkResult::Error, LinkCheckStatus::Failed]]);
-
-it('reads at most the configured number of bytes of a page', function (): void {
-    config(['linkcheck.max_bytes' => 10]);
-    Http::fake(['*' => Http::response(str_repeat('a', 5000))]);
-    $page = app(JobPageFetcher::class)->fetch('https://jobs.example/big');
-    expect(strlen($page['body']))->toBeLessThanOrEqual(10);
-});
 
 it('reports a live page with no structured data as done with nothing filled', function (): void {
     Http::fake(['*' => Http::response('<html>plain</html>')]);

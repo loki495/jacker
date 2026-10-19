@@ -17,10 +17,14 @@ final readonly class JobPageFetcher
      */
     public function fetch(string $url): array
     {
+        $maxBytes = (int) config('linkcheck.max_bytes');
         for ($hop = 0; $hop <= (int) config('linkcheck.max_redirects'); $hop++) {
             $addresses = $this->guard->assertPublic($url);
             $response = Http::withoutRedirecting()
-                ->withOptions(['stream' => true, 'curl' => [CURLOPT_RESOLVE => [$this->pin($url, $addresses)]]])
+                ->withOptions([
+                    'curl' => [CURLOPT_RESOLVE => [$this->pin($url, $addresses)]],
+                    'progress' => fn (int $total, int $downloaded) => $downloaded > $maxBytes ? throw new \RuntimeException(__('jobs.link_too_large')) : null,
+                ])
                 ->timeout((int) config('linkcheck.timeout'))
                 ->withUserAgent((string) config('linkcheck.user_agent'))
                 ->accept('text/html,application/xhtml+xml')
@@ -32,7 +36,7 @@ final readonly class JobPageFetcher
                 continue;
             }
 
-            return ['status' => $response->status(), 'body' => $response->toPsrResponse()->getBody()->read((int) config('linkcheck.max_bytes')), 'url' => $url];
+            return ['status' => $response->status(), 'body' => $response->body(), 'url' => $url];
         }
 
         throw new \RuntimeException(__('jobs.link_too_many_redirects'));
