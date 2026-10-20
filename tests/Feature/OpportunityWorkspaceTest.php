@@ -107,3 +107,12 @@ it('renders readable detail sections including empty ones', function (): void {
     $job = Opportunity::factory()->create(['salary_min' => '100000.00', 'salary_max' => '120000.00', 'currency' => 'USD', 'pay_period' => 'year', 'benefits' => 'Medical; dental', 'requirements' => null]);
     Livewire::test('pages::detail', ['opportunity' => $job])->assertSee('$100,000 – $120,000 per year')->assertSeeHtml('<li>Medical</li>')->assertSee(__('jobs.nothing_added'));
 });
+
+it('shows the open application link under the title only for web links', function (): void {
+    $job = Opportunity::factory()->create(['application_url' => 'https://jobs.example/apply/1']);
+    $html = Livewire::test('pages::detail', ['opportunity' => $job])->html();
+    expect(strpos($html, 'jobs.example/apply/1'))->toBeLessThan(strpos($html, 'detail-grid'))->and($html)->toContain(__('jobs.open_application_url'));
+
+    $unsafe = Opportunity::factory()->create(['application_url' => 'javascript:alert(1)']);
+    expect(Livewire::test('pages::detail', ['opportunity' => $unsafe])->html())->not->toContain('javascript:alert(1)');
+});
