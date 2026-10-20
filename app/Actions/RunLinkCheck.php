@@ -68,16 +68,14 @@ final readonly class RunLinkCheck
         }
 
         $fields = $this->parser->parse($page['body']);
-        $text = $fields === [] ? $this->text->extract($page['body'], (int) config('linkcheck.max_text_chars')) : '';
+        $text = $this->text->extract($page['body'], (int) config('linkcheck.max_text_chars'));
         $gone = $fields === [] ? $this->gone->detect($page['body'], $text) : ($this->parser->expired($page['body']) ? __('jobs.link_expired') : null);
         if ($gone !== null) {
             $this->finish($check, $opportunity, LinkCheckStatus::Done, LinkResult::Dead, $gone);
 
             return;
         }
-        if ($fields === []) {
-            $check->page_text = $text;
-        }
+        $check->page_text = $text !== '' ? $text : null;
         $this->applyFields($check, $fields);
     }
 

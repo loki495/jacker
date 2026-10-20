@@ -5,12 +5,15 @@ declare(strict_types=1);
 use App\Actions\ClaimAiRequest;
 use App\Actions\CompleteAiRequest;
 use App\Actions\RequestAiExtraction;
+use App\Actions\RunLinkCheck;
 use App\Enums\LinkCheckStatus;
 use App\Models\AiRequest;
 use App\Models\LinkCheck;
 use App\Models\Opportunity;
 use App\Services\PageText;
+use App\Services\UrlGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -101,4 +104,19 @@ it('shows the AI request state in the log from pending to its result', function 
     $second->update(['status' => LinkCheckStatus::Running]);
     app(CompleteAiRequest::class)->handle($second->load('linkCheck'), json_encode(['company' => 'Acme', 'title' => 'Dev']));
     $page->call('$refresh')->assertSee('AI: ')->assertSee($second->refresh()->message);
+});
+
+it('keeps the page text of a page with structured data and allows an AI pass that only fills empty fields', function (): void {
+    app()->instance(UrlGuard::class, new UrlGuard(fn (string $host): array => ['93.184.216.34']));
+    Http::fake(['*' => Http::response('<html><head><script type="application/ld+json">{"@type":"JobPosting","title":"Dev","hiringOrganization":{"name":"Acme"},"description":"Build things"}</script></head><body><h1>Dev at Acme</h1><p>Hybrid role in Austin</p></body></html>')]);
+    $job = Opportunity::factory()->create(['application_url' => 'https://jobs.example/9', 'title' => 'Mine', 'location' => null, 'hours' => null]);
+    $check = LinkCheck::query()->create(['kind' => 'check', 'url' => $job->application_url, 'opportunity_id' => $job->id, 'status' => LinkCheckStatus::Queued]);
+    app(RunLinkCheck::class)->handle($check);
+    expect($check->refresh()->page_text)->toContain('Hybrid role in Austin');
+
+    $request = app(RequestAiExtraction::class)->handle($check);
+    expect($request)->toBeInstanceOf(AiRequest::class);
+    $request->update(['status' => LinkCheckStatus::Running]);
+    app(CompleteAiRequest::class)->handle($request->load('linkCheck.opportunity'), json_encode(['title' => 'Overwrite', 'location' => 'Austin, TX']));
+    expect($job->refresh()->title)->toBe('Mine')->and($job->location)->toBe('Austin, TX');
 });

@@ -258,7 +258,7 @@ return [
     'ai_raw_reply' => 'Raw reply',
     'ai_extract' => 'Read with AI',
     'ai_queued' => 'AI request queued. It runs when the host bridge next runs.',
-    'ai_not_eligible' => 'This check cannot be read with AI (no page text, already filled, or a request is pending).',
+    'ai_not_eligible' => 'This check cannot be read with AI (no saved page text, or a request is pending).',
     'appearance' => 'Colour theme',
     'appearance_light' => 'Light',
     'appearance_dark' => 'Dark',

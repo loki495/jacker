@@ -10,10 +10,10 @@ use App\Models\LinkCheck;
 
 final class RequestAiExtraction
 {
-    /** Queues one extraction for a link check that found no structured data; null when not eligible or already pending. */
+    /** Queues one extraction for a link check that kept page text, whether or not structured data was found; null when there is no text or one is already pending. */
     public function handle(LinkCheck $check): ?AiRequest
     {
-        if (blank($check->page_text) || $check->filled !== null && $check->filled !== []) {
+        if (blank($check->page_text)) {
             return null;
         }
         $pending = AiRequest::query()->where('link_check_id', $check->id)->whereIn('status', [LinkCheckStatus::Queued, LinkCheckStatus::Running])->exists();
