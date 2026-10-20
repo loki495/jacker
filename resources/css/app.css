@@ -45,3 +45,4 @@
 .topbar-end{display:flex;align-items:center;gap:22px}
 
 .ai-note{display:flex;flex-direction:column;gap:2px;margin-top:6px;padding:6px 8px;border:1px solid #c9d9ee;border-left:3px solid #4f7fc9;border-radius:6px;background:#f2f7fd;color:#2d4a73}.ai-note pre{margin:4px 0;white-space:pre-wrap;font-size:11px}.ai-note summary{cursor:pointer}
+.ai-items{margin:2px 0 6px;padding-left:18px;list-style:disc;font-size:12px;line-height:1.5}.ai-items li{padding:3px 0;border-bottom:1px solid #d6e2f2}.ai-items li:last-child{border-bottom:0}.ai-items li::marker{color:#4f7fc9}

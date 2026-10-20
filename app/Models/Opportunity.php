@@ -89,7 +89,13 @@ class Opportunity extends Model
     /** @return list<string> */
     public function listItems(string $field): array
     {
-        $parts = preg_split('/\R|;/u', (string) $this->{$field}) ?: [];
+        return self::splitItems((string) $this->{$field});
+    }
+
+    /** @return list<string> */
+    public static function splitItems(string $text): array
+    {
+        $parts = preg_split('/\R|;/u', $text) ?: [];
 
         return array_values(array_filter(array_map(fn (string $part): string => trim($part, " \t-•*"), $parts), fn (string $part): bool => $part !== ''));
     }

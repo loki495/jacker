@@ -37,6 +37,17 @@ class AiRequest extends Model
         return ['status' => LinkCheckStatus::class, 'replaced' => 'array', 'started_at' => 'datetime', 'finished_at' => 'datetime'];
     }
 
+    /** @return array<string, mixed>|null The model's JSON reply as fields, or null when it is not a JSON object. */
+    public function outputFields(): ?array
+    {
+        $output = (string) $this->output;
+        $start = strpos($output, '{');
+        $end = strrpos($output, '}');
+        $json = $start === false || $end === false ? null : json_decode(substr($output, $start, $end - $start + 1), true);
+
+        return is_array($json) && $json !== [] ? $json : null;
+    }
+
     /** @return BelongsTo<LinkCheck, $this> */
     public function linkCheck(): BelongsTo
     {

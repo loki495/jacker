@@ -136,3 +136,17 @@ it('lets an explicit AI pass replace long text fields and keeps the earlier valu
 
     Livewire::test('pages::link-checks')->assertSee(__('jobs.ai_replaced', ['fields' => 'responsibilities']))->assertSee('Old cut-off text');
 });
+
+it('shows replaced values and the raw reply as bullet items, and falls back to plain text for a non-JSON reply', function (): void {
+    $job = Opportunity::factory()->create(['responsibilities' => "Old one\nOld two"]);
+    $request = app(RequestAiExtraction::class)->handle(noDataCheck($job));
+    $request->update(['status' => LinkCheckStatus::Running]);
+    app(CompleteAiRequest::class)->handle($request->load('linkCheck.opportunity'), json_encode(['responsibilities' => "Build APIs\nRun on-call", 'requirements' => 'PHP; SQL']));
+
+    Livewire::test('pages::link-checks')->assertSeeHtml('<ul class="ai-items">')
+        ->assertSeeHtml('<li>Old one</li>')->assertSeeHtml('<li>Old two</li>')->assertSeeHtml('<li>Build APIs</li>')->assertSeeHtml('<li>Run on-call</li>')->assertSeeHtml('<li>PHP</li>')->assertSeeHtml('<li>SQL</li>');
+
+    $bad = AiRequest::query()->create(['link_check_id' => noDataCheck()->id, 'kind' => 'extract', 'status' => LinkCheckStatus::Failed, 'output' => 'Sorry, no <b>JSON</b>']);
+    Livewire::test('pages::link-checks')->assertSeeHtml('<pre class="link-cell">Sorry, no &lt;b&gt;JSON&lt;/b&gt;</pre>');
+    expect($bad->outputFields())->toBeNull();
+});
