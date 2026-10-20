@@ -1,0 +1,9 @@
+{
+  "name": "jacker-render",
+  "private": true,
+  "type": "module",
+  "description": "Host-side page renderer used by bin/ai-bridge for the on-demand Render page action",
+  "dependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}

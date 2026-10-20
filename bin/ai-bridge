@@ -1,16 +1,34 @@
 #!/usr/bin/env bash
-# Host side of the AI request queue: takes one queued request from the app container, runs it in a
+# Host side of the AI and page-render request queues: takes one queued request from the app container, runs it in a
 # one-off Sessioneer session (`--wait` prints the final reply) and hands the reply back. Run on demand;
-# `--loop` keeps polling. Needs docker, jq and `sessioneer` on the host.
+# `--loop` keeps polling. Needs docker, jq and `sessioneer` on the host; page renders also need node with
+# `npm install` run in tools/render and a Chromium (RENDER_CHROME, default: newest in ~/.cache/ms-playwright).
 set -euo pipefail
 
 CONTAINER="${JACKER_CONTAINER:-jacker-app}"
 TIMEOUT="${AI_BRIDGE_TIMEOUT:-180}"
+RENDER_TIMEOUT="${RENDER_TIMEOUT_MS:-30000}"; RENDER_TIMEOUT=$((RENDER_TIMEOUT / 1000))
+RENDER_SCRIPT="$(dirname "$(readlink -f "$0")")/../tools/render/render.mjs"
 WORKDIR="$(mktemp -d)"
 trap 'rmdir "$WORKDIR" 2>/dev/null || true' EXIT
 artisan() { docker exec -i --user www-data "$CONTAINER" php artisan "$@"; }
 
+render_one() {
+    local job id url text errfile
+    job="$(artisan render:claim)"
+    [ -n "$job" ] || return 1
+    id="$(jq -r .id <<<"$job")"; url="$(jq -r .url <<<"$job")"
+    errfile="$(mktemp)"
+    if text="$(timeout "$((RENDER_TIMEOUT + 30))" node "$RENDER_SCRIPT" "$url" 2>"$errfile")" && [ -n "$text" ]; then
+        artisan render:complete "$id" <<<"$text"
+    else
+        artisan render:complete "$id" --fail="$(tail -n1 "$errfile" | cut -c1-300)"
+    fi
+    rm -f "$errfile"
+}
+
 work_one() {
+    render_one && return 0
     local job id agent model reply errfile name
     job="$(artisan ai:claim)"
     [ -n "$job" ] || return 1

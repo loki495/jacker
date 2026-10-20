@@ -16,7 +16,7 @@ final class RequestAiExtraction
         if (blank($check->page_text)) {
             return null;
         }
-        $pending = AiRequest::query()->where('link_check_id', $check->id)->whereIn('status', [LinkCheckStatus::Queued, LinkCheckStatus::Running])->exists();
+        $pending = AiRequest::query()->where('link_check_id', $check->id)->where('kind', AiRequest::KIND_EXTRACT)->whereIn('status', [LinkCheckStatus::Queued, LinkCheckStatus::Running])->exists();
         if ($pending) {
             return null;
         }

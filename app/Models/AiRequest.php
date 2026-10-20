@@ -25,6 +25,8 @@ class AiRequest extends Model
 {
     public const KIND_EXTRACT = 'extract';
 
+    public const KIND_RENDER = 'render';
+
     #[\Override]
     protected $guarded = ['id', 'created_at', 'updated_at'];
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\QueueLinkChecks;
 use App\Actions\RequestAiExtraction;
+use App\Actions\RequestPageRender;
 use App\Enums\LinkCheckStatus;
 use App\Models\LinkCheck;
 use Livewire\Attributes\Computed;
@@ -37,6 +38,12 @@ new #[Layout('layouts.app')] class extends Component
         $this->resetPage();
     }
 
+    public function renderPage(int $id, RequestPageRender $request): void
+    {
+        $check = LinkCheck::query()->find($id);
+        $this->message = $check instanceof LinkCheck && $request->handle($check) !== null ? __('jobs.render_queued') : __('jobs.render_not_eligible');
+    }
+
     public function readWithAi(int $id, RequestAiExtraction $request): void
     {
         $check = LinkCheck::query()->find($id);
@@ -55,7 +62,7 @@ new #[Layout('layouts.app')] class extends Component
     #[Computed]
     public function checks()
     {
-        return LinkCheck::query()->with('opportunity', 'latestAiRequest')->orderByDesc('id')->paginate(25);
+        return LinkCheck::query()->with('opportunity', 'latestAiRequest', 'latestRenderRequest')->orderByDesc('id')->paginate(25);
     }
 };
 ?>
@@ -71,7 +78,7 @@ new #[Layout('layouts.app')] class extends Component
     <section class="panel detail-panel"><form wire:submit="clearOld" class="form-actions"><flux:select wire:model="clearDays" :aria-label="__('jobs.link_clear_label')"><option value="30">{{ __('jobs.link_clear_30') }}</option><option value="7">{{ __('jobs.link_clear_7') }}</option><option value="0">{{ __('jobs.link_clear_all') }}</option></flux:select><flux:button type="submit" wire:confirm="{{ __('jobs.link_clear_confirm') }}">{{ __('jobs.link_clear') }}</flux:button></form></section>
     <section class="pipeline panel"><div class="table-scroll"><table><thead><tr><th>{{ __('jobs.link_col_when') }}</th><th>{{ __('jobs.link_col_kind') }}</th><th>{{ __('jobs.link_col_job') }}</th><th>{{ __('jobs.link_col_link') }}</th><th>{{ __('jobs.status') }}</th><th>{{ __('jobs.link_col_result') }}</th></tr></thead><tbody>
         @forelse($this->checks as $check)
-            <tr wire:key="check-{{ $check->id }}"><td>{{ $check->created_at->format('M j, g:i a') }}</td><td>{{ __('jobs.link_kind_'.$check->kind) }}</td><td>@if($check->opportunity)<a class="role-link" href="/opportunities/{{ $check->opportunity->id }}" wire:navigate>{{ $check->opportunity->company }}<span class="company-name">{{ $check->opportunity->title }}</span></a>@endif</td><td class="link-cell">@if(preg_match('#^https?://#i', (string) $check->url))<a href="{{ $check->url }}" target="_blank" rel="noopener noreferrer" class="underline">{{ $check->url }}</a>@else{{ $check->url }}@endif</td><td><span class="status-badge link-{{ $check->status->value }}">{{ $check->status->label() }}</span></td><td>{{ $check->result?->label() }}@if($check->message)<small class="muted"><br>{{ $check->message }}</small>@endif @php($ai = $check->latestAiRequest)@if($ai)<br><small class="muted">{{ __('jobs.ai_state_'.$ai->status->value, ['message' => $ai->message]) }}</small>@if(filled($ai->output))<details><summary><small>{{ __('jobs.ai_raw_reply') }}</small></summary><pre class="link-cell">{{ $ai->output }}</pre></details>@endif@endif @if($check->page_text && ! in_array($ai?->status, [App\Enums\LinkCheckStatus::Queued, App\Enums\LinkCheckStatus::Running], true))<br><flux:button size="xs" wire:click="readWithAi({{ $check->id }})">{{ __('jobs.ai_extract') }}</flux:button>@endif</td></tr>
+            <tr wire:key="check-{{ $check->id }}"><td>{{ $check->created_at->format('M j, g:i a') }}</td><td>{{ __('jobs.link_kind_'.$check->kind) }}</td><td>@if($check->opportunity)<a class="role-link" href="/opportunities/{{ $check->opportunity->id }}" wire:navigate>{{ $check->opportunity->company }}<span class="company-name">{{ $check->opportunity->title }}</span></a>@endif</td><td class="link-cell">@if(preg_match('#^https?://#i', (string) $check->url))<a href="{{ $check->url }}" target="_blank" rel="noopener noreferrer" class="underline">{{ $check->url }}</a>@else{{ $check->url }}@endif</td><td><span class="status-badge link-{{ $check->status->value }}">{{ $check->status->label() }}</span></td><td>{{ $check->result?->label() }}@if($check->message)<small class="muted"><br>{{ $check->message }}</small>@endif @php($render = $check->latestRenderRequest)@if($render)<br><small class="muted">{{ __('jobs.render_state_'.$render->status->value, ['message' => $render->message]) }}</small>@endif @if($check->kind !== 'saved' && ! in_array($render?->status, [App\Enums\LinkCheckStatus::Queued, App\Enums\LinkCheckStatus::Running], true))<br><flux:button size="xs" wire:click="renderPage({{ $check->id }})">{{ __('jobs.render_page') }}</flux:button>@endif @php($ai = $check->latestAiRequest)@if($ai)<br><small class="muted">{{ __('jobs.ai_state_'.$ai->status->value, ['message' => $ai->message]) }}</small>@if(filled($ai->output))<details><summary><small>{{ __('jobs.ai_raw_reply') }}</small></summary><pre class="link-cell">{{ $ai->output }}</pre></details>@endif@endif @if($check->page_text && ! in_array($ai?->status, [App\Enums\LinkCheckStatus::Queued, App\Enums\LinkCheckStatus::Running], true))<br><flux:button size="xs" wire:click="readWithAi({{ $check->id }})">{{ __('jobs.ai_extract') }}</flux:button>@endif</td></tr>
         @empty
             <tr><td colspan="6"><div class="table-empty"><p>{{ __('jobs.link_log_empty') }}</p></div></td></tr>
         @endforelse

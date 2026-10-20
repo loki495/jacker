@@ -18,7 +18,7 @@ final class ClaimAiRequest
     public function handle(): ?array
     {
         $request = DB::transaction(function (): ?AiRequest {
-            $request = AiRequest::query()->with('linkCheck')->where('status', LinkCheckStatus::Queued)->orderBy('id')->first();
+            $request = AiRequest::query()->with('linkCheck')->where('kind', AiRequest::KIND_EXTRACT)->where('status', LinkCheckStatus::Queued)->orderBy('id')->first();
             $request?->update(['status' => LinkCheckStatus::Running, 'started_at' => now()]);
 
             return $request;
