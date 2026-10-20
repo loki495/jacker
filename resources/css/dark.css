@@ -77,3 +77,4 @@ html.dark .detail-list li::marker{color:#75a48f}
 html.dark .link-running{background:#462e04;color:#d4a752}
 html.dark .link-done{background:#08441a;color:#71d3a1}
 html.dark .link-failed{background:#321414;color:#aa6e73}
+html.dark .ai-note{border-color:#2f4466;border-left-color:#6a9be0;background:#14202f;color:#b9cdea}
