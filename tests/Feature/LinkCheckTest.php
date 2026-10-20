@@ -172,3 +172,11 @@ it('leaves applied or in-process jobs open when their link is dead', function (s
     app(RunLinkCheck::class)->handle($check);
     expect($job->refresh()->status->value)->toBe($status)->and($job->link_status)->toBe('dead');
 })->with([['applied', true], ['interviewing', true], ['saved', true]]);
+
+it('shows log links as new-tab anchors only for web urls', function (): void {
+    LinkCheck::query()->create(['url' => 'https://jobs.example/one', 'kind' => 'check', 'status' => LinkCheckStatus::Done]);
+    LinkCheck::query()->create(['url' => 'javascript:alert(1)', 'kind' => 'check', 'status' => LinkCheckStatus::Done]);
+    Livewire::test('pages::link-checks')
+        ->assertSeeHtml('href="https://jobs.example/one" target="_blank" rel="noopener noreferrer"')
+        ->assertDontSeeHtml('href="javascript:alert(1)"');
+});
