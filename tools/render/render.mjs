@@ -48,10 +48,20 @@ const proxy = await startProxy(vet);
 const browser = await chromium.launch({
     executablePath: chromePath(),
     headless: true,
-    args: [`--proxy-server=http://127.0.0.1:${proxy.address().port}`, '--proxy-bypass-list=<-loopback>', ...(process.env.RENDER_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])],
+    args: [
+        `--proxy-server=http://127.0.0.1:${proxy.address().port}`,
+        '--proxy-bypass-list=<-loopback>',
+        // WebRTC would otherwise send UDP straight out, around the proxy
+        '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+        '--webrtc-ip-handling-policy=disable_non_proxied_udp',
+        ...(process.env.RENDER_NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
+    ],
 });
 try {
     const context = await browser.newContext({ acceptDownloads: false, serviceWorkers: 'block' });
+    await context.addInitScript(() => {
+        for (const name of ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel']) delete window[name];
+    });
     await context.route('**/*', (route) => (['image', 'media', 'font', 'stylesheet'].includes(route.request().resourceType()) ? route.abort() : route.continue()));
     const page = await context.newPage();
     const target = new URL(url);
