@@ -3,8 +3,10 @@
 // connects only to addresses the app's UrlGuard approved through `render:allow`; images, media, fonts and stylesheets are not loaded.
 import { execFile } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { chromium } from 'playwright-core';
 import { startProxy } from './proxy.mjs';
@@ -43,13 +45,21 @@ function vet(host) {
     return vetted.get(host);
 }
 
-const proxy = await startProxy(vet);
+// By default Chromium runs in a network namespace whose only way out is a relay to the proxy's unix socket
+// (isolated-chrome.sh); RENDER_ISOLATE=0 falls back to a plain loopback proxy where unprivileged namespaces are unavailable.
+const isolate = process.env.RENDER_ISOLATE !== '0';
+const relayPort = 3128;
+const socketDir = isolate ? mkdtempSync(join(tmpdir(), 'jacker-render-')) : null;
+const socketPath = socketDir && join(socketDir, 'proxy.sock');
+const proxy = await startProxy(vet, isolate ? { path: socketPath } : undefined);
+const proxyServer = isolate ? `http://127.0.0.1:${relayPort}` : `http://127.0.0.1:${proxy.address().port}`;
 // ponytail: --no-sandbox only when RENDER_NO_SANDBOX=1 (needed where unprivileged user namespaces are off)
 const browser = await chromium.launch({
-    executablePath: chromePath(),
+    executablePath: isolate ? join(dirname(fileURLToPath(import.meta.url)), 'isolated-chrome.sh') : chromePath(),
     headless: true,
+    env: { ...process.env, RENDER_PROXY_SOCK: socketPath ?? '', RENDER_RELAY_PORT: String(relayPort), RENDER_CHROME: chromePath() },
     args: [
-        `--proxy-server=http://127.0.0.1:${proxy.address().port}`,
+        `--proxy-server=${proxyServer}`,
         '--proxy-bypass-list=<-loopback>',
         // WebRTC would otherwise send UDP straight out, around the proxy
         '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
@@ -75,4 +85,5 @@ try {
 } finally {
     await browser.close();
     proxy.close();
+    if (socketDir) rmSync(socketDir, { recursive: true, force: true });
 }

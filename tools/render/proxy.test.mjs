@@ -1,5 +1,6 @@
 // Run with `node --test` in tools/render. Stands in for the vetting callback so no real network or Chromium is needed.
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import http from 'node:http';
 import net from 'node:net';
 import { after, before, test } from 'node:test';
@@ -67,4 +68,12 @@ test('CONNECT tunnels to vetted hosts only and rejects malformed targets', async
     assert.equal(await connect(`private.test:${secret.address().port}`), '403');
     assert.equal(await connect('nonsense'), '403');
     assert.equal(hits.secret, 0);
+});
+
+test('the isolated browser namespace has no route out', () => {
+    const out = execFileSync(new URL('./isolated-chrome.sh', import.meta.url).pathname, ['-c', 'cat /proc/net/dev'], {
+        env: { ...process.env, RENDER_CHROME: '/bin/sh', RENDER_PROXY_SOCK: '/nonexistent', RENDER_RELAY_PORT: '3128' },
+    }).toString();
+    const interfaces = out.split('\n').slice(2).map((line) => line.split(':')[0].trim()).filter(Boolean);
+    assert.deepEqual(interfaces, ['lo']);
 });

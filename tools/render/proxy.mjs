@@ -5,7 +5,7 @@ import http from 'node:http';
 import net from 'node:net';
 
 // ponytail: connects to the first vetted address only; try the rest if hosts with dead A records matter.
-export function startProxy(vet) {
+export function startProxy(vet, listen = { port: 0, host: '127.0.0.1' }) {
     const bare = (host) => host.replace(/^\[|\]$/g, '');
     const server = http.createServer(async (req, res) => {
         let url;
@@ -51,5 +51,5 @@ export function startProxy(vet) {
         socket.on('close', () => upstream.destroy());
     });
 
-    return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
+    return new Promise((resolve) => server.listen(listen, () => resolve(server)));
 }
