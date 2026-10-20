@@ -50,6 +50,8 @@ final readonly class RunLinkCheck
 
         if ($board !== null) {
             $check->http_status = 200;
+            $posting = implode("\n", array_filter(array_map(fn (string $key): string => trim((string) ($board['fields'][$key] ?? '')), ['title', 'company', 'location', 'responsibilities'])));
+            $check->page_text = $posting !== '' ? mb_substr($posting, 0, (int) config('linkcheck.max_text_chars')) : null;
             $board['gone'] ? $this->finish($check, $opportunity, LinkCheckStatus::Done, LinkResult::Dead, __('jobs.link_board_gone')) : $this->applyFields($check, $board['fields']);
 
             return;

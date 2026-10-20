@@ -46,7 +46,8 @@ it('fills empty fields from a live Ashby posting', function (): void {
     [$check, $job] = runCheck('https://jobs.ashbyhq.com/givebutter/'.ASHBY_ID);
     expect($check->result)->toBe(LinkResult::Ok)->and($job->title)->toBe('Engineering Manager')->and($job->employment_type->value)->toBe('full_time')
         ->and($job->work_arrangement->value)->toBe('remote')->and($job->responsibilities)->toBe('Lead the team.')
-        ->and((float) $job->salary_min)->toBe(175000.0)->and($job->pay_period->value)->toBe('year')->and($job->status->value)->not->toBe('closed');
+        ->and((float) $job->salary_min)->toBe(175000.0)->and($job->pay_period->value)->toBe('year')->and($job->status->value)->not->toBe('closed')
+        ->and($check->page_text)->toBe("Engineering Manager\nRemote\nLead the team.");
 });
 
 it('falls back to the page when the board answers with an error', function (): void {
