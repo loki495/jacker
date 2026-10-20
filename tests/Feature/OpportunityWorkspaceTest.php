@@ -116,3 +116,15 @@ it('shows the open application link under the title only for web links', functio
     $unsafe = Opportunity::factory()->create(['application_url' => 'javascript:alert(1)']);
     expect(Livewire::test('pages::detail', ['opportunity' => $unsafe])->html())->not->toContain('javascript:alert(1)');
 });
+
+it('hides closed jobs by default and offers open and all status filters', function (): void {
+    Opportunity::factory()->create(['company' => 'Fresh Co', 'status' => 'saved']);
+    Opportunity::factory()->create(['company' => 'Applied Co', 'status' => 'applied', 'has_applied' => true]);
+    Opportunity::factory()->create(['company' => 'Closed Co', 'status' => 'closed']);
+    $component = Livewire::test('pages::home')->assertSet('status', 'open_unapplied')->assertSee('Fresh Co')->assertDontSee('Applied Co')->assertDontSee('Closed Co');
+    $component->set('status', 'open')->assertSee('Fresh Co')->assertSee('Applied Co')->assertDontSee('Closed Co');
+    $component->set('status', '')->assertSee('Closed Co');
+    $component->set('status', 'closed');
+    expect($component->instance()->opportunities->pluck('company')->all())->toBe(['Closed Co']);
+    $component->set('status', 'bogus')->assertStatus(200)->assertSee('Closed Co');
+});

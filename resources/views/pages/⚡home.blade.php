@@ -20,7 +20,7 @@ new #[Layout('layouts.app')] class extends Component
     public string $search = '';
 
     #[Url]
-    public string $status = '';
+    public string $status = 'open_unapplied';
 
     #[Url]
     public string $archive = 'active';
@@ -60,6 +60,8 @@ new #[Layout('layouts.app')] class extends Component
                 $q->where(fn ($q) => $q->whereRaw("company LIKE ? ESCAPE '\\'", [$term])->orWhereRaw("title LIKE ? ESCAPE '\\'", [$term])->orWhereRaw("location LIKE ? ESCAPE '\\'", [$term]));
             })
             ->when(OpportunityStatus::tryFrom($this->status), fn ($q) => $q->where('status', $this->status))
+            ->when(in_array($this->status, ['open', 'open_unapplied'], true), fn ($q) => $q->where('status', '!=', OpportunityStatus::Closed->value))
+            ->when($this->status === 'open_unapplied', fn ($q) => $q->where('has_applied', false))
             ->when(in_array($this->applied, ['yes', 'no'], true), fn ($q) => $q->where('has_applied', $this->applied === 'yes'))
             ->when($this->due, fn ($q) => $q->whereDate('follow_up_at', '<=', today())->whereNotIn('status', ['rejected', 'withdrawn', 'closed']));
     }
@@ -122,7 +124,7 @@ new #[Layout('layouts.app')] class extends Component
         <div class="pipeline-header"><div><h2>{{ __('jobs.pipeline') }} <span class="count-badge">{{ $this->opportunities->total() }}</span></h2><p>{{ __('jobs.pipeline_hint') }}</p></div><div class="view-switch" aria-label="{{ __('jobs.view') }}"><button wire:click="$set('view', 'table')" @class(['active' => $view !== 'board'])>{{ __('jobs.table') }}</button><button wire:click="$set('view', 'board')" @class(['active' => $view === 'board'])>{{ __('jobs.board') }}</button></div></div>
         <div class="filters">
             <div class="search-control"><flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('jobs.search')" :aria-label="__('jobs.search')" /></div>
-            <flux:select wire:model.live="status" :aria-label="__('jobs.status')"><option value="">{{ __('jobs.all_statuses') }}</option>@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select>
+            <flux:select wire:model.live="status" :aria-label="__('jobs.status')"><option value="open_unapplied">{{ __('jobs.status_open_unapplied') }}</option><option value="open">{{ __('jobs.status_open') }}</option><option value="">{{ __('jobs.all_statuses') }}</option>@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select>
             <flux:select wire:model.live="applied" :aria-label="__('jobs.application_filter')"><option value="">{{ __('jobs.all_applications') }}</option><option value="no">{{ __('jobs.not_applied') }}</option><option value="yes">{{ __('jobs.has_applied') }}</option></flux:select>
             <flux:select wire:model.live="sort" :aria-label="__('jobs.sort')">@foreach(['rank','skill_match','desirability','newest','company','follow_up','deadline'] as $option)<option value="{{ $option }}">{{ __('jobs.sort_'.$option) }}</option>@endforeach</flux:select>
         </div>

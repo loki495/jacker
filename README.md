@@ -4,7 +4,7 @@ A private, single-user job application tracker built with Laravel 13, Livewire 4
 
 ## Your workspace
 
-Save opportunities before applying and track them through Saved, Preparing, Applied, Screening, Interviewing, Offer, Rejected, Withdrawn, and Closed. The overview includes a ranked “Apply next” list, application counts, due follow-ups, a searchable table and a status board. The board displays the current page of results; filters and pagination apply to both views. Archive records to keep their details without cluttering the active workspace.
+Save opportunities before applying and track them through Saved, Preparing, Applied, Screening, Interviewing, Offer, Rejected, Withdrawn, and Closed. The overview includes a ranked “Apply next” list, application counts, due follow-ups, a searchable table and a status board. The status filter defaults to *Not closed, not applied yet*; *Everything not closed* and *All statuses* are one click away. The board displays the current page of results; filters and pagination apply to both views. Archive records to keep their details without cluttering the active workspace.
 
 Each opportunity can hold:
 

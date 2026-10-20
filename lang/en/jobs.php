@@ -49,6 +49,8 @@ return [
     'search' => 'Search role, company or location…',
     'status' => 'Status',
     'all_statuses' => 'All statuses',
+    'status_open' => 'Everything not closed',
+    'status_open_unapplied' => 'Not closed, not applied yet',
     'application_filter' => 'Application progress',
     'all_applications' => 'All applications',
     'not_applied' => 'Not yet applied',
