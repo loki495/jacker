@@ -9,6 +9,7 @@ use App\Enums\LinkResult;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -52,6 +53,12 @@ class LinkCheck extends Model
     public function aiRequests(): HasMany
     {
         return $this->hasMany(AiRequest::class);
+    }
+
+    /** @return HasOne<AiRequest, $this> */
+    public function latestAiRequest(): HasOne
+    {
+        return $this->hasOne(AiRequest::class)->latestOfMany();
     }
 
     /** @return BelongsTo<Opportunity, $this> */

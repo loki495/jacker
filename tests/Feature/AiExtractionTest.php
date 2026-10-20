@@ -83,3 +83,21 @@ it('claims and completes through the artisan commands', function (): void {
     expect($request->refresh()->status)->toBe(LinkCheckStatus::Failed)->and($request->message)->toBe('no reply');
     $this->artisan('ai:complete', ['id' => $request->id, '--fail' => 'again'])->assertFailed();
 });
+
+it('shows the AI request state in the log from pending to its result', function (): void {
+    $check = noDataCheck();
+    $page = Livewire::test('pages::link-checks')->call('readWithAi', $check->id)->assertSee(__('jobs.ai_state_queued'))->assertDontSee(__('jobs.ai_extract'));
+    $request = AiRequest::query()->firstOrFail();
+
+    $request->update(['status' => LinkCheckStatus::Running]);
+    $page->call('$refresh')->assertSee(__('jobs.ai_state_running'))->assertDontSee(__('jobs.ai_extract'));
+
+    app(CompleteAiRequest::class)->handle($request->load('linkCheck'), 'Sorry, I cannot do that.');
+    $page->call('$refresh')->assertSee(__('jobs.ai_state_failed', ['message' => __('jobs.ai_bad_output')]))->assertSee(__('jobs.ai_extract'));
+
+    app(RequestAiExtraction::class)->handle($check->refresh());
+    $second = AiRequest::query()->latest('id')->firstOrFail();
+    $second->update(['status' => LinkCheckStatus::Running]);
+    app(CompleteAiRequest::class)->handle($second->load('linkCheck'), json_encode(['company' => 'Acme', 'title' => 'Dev']));
+    $page->call('$refresh')->assertSee('AI: ')->assertSee($second->refresh()->message);
+});
