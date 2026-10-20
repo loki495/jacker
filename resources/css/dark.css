@@ -1,0 +1,79 @@
+/* Dark theme overrides for the light styles in app.css. */
+html.dark{color-scheme:dark;--color-accent:#1a8f80;--color-accent-content:#5fd1c0;--color-accent-foreground:#fff}
+html.dark{color:#becfde;background:#202020}
+html.dark .topbar{border-bottom:1px solid #383838;color:#829096;background:#1e1e1e}
+html.dark .personal-label{color:#90a7b0}
+html.dark .avatar{background:#183c2d}
+html.dark h1{color:#c1d9e2}
+html.dark h2{color:#bed5de}
+html.dark .page-heading p,html.dark .section-heading p,html.dark .pipeline-header p{color:#819197}
+html.dark .eyebrow{color:#78a196}
+html.dark .metric{border:1px solid #304533;background:#1c1c1c}
+html.dark .metric>span{color:#809299}
+html.dark .metric strong{color:#b8d9d0}
+html.dark .metric small{color:#86928f}
+html.dark .small-tag{background:#153624;color:#77a192}
+html.dark .next-card{background:#1c1c1c;border:1px solid #304533}
+html.dark .company-avatar{background:#263217;color:#86a68c}
+html.dark .next-card h3{color:#b2ced9}
+html.dark .next-card p{color:#839695}
+html.dark .next-card p span{color:#87928a}
+html.dark .card-ranks{border-top:1px solid #353535;color:#849592}
+html.dark .card-ranks b{color:#99c5b9}
+html.dark .card-arrow{color:#77a296}
+html.dark .status-badge,html.dark .status-select{color:#819792;background:#212121}
+html.dark .status-applied{background:#0a1f3d;color:#5f87b9}
+html.dark .status-preparing{background:#462e04;color:#d4a752}
+html.dark .status-screening,html.dark .status-interviewing{background:#1a0e38;color:#8566b3}
+html.dark .status-offer{background:#08441a;color:#71d3a1}
+html.dark .status-rejected,html.dark .status-withdrawn,html.dark .status-closed{background:#321414;color:#aa6e73}
+html.dark .panel{background:#1c1c1c;border:1px solid #334530}
+html.dark .count-badge{background:#232323;color:#84958a}
+html.dark .view-switch{background:#222222}
+html.dark .view-switch button{color:#84958c}
+html.dark .view-switch button.active{background:#1c1c1c;color:#a6d2c6}
+html.dark thead{background:#1f1f1f;color:#85938c}
+html.dark th{border-block:1px solid #324429}
+html.dark td{border-bottom:1px solid #36422a;color:#829794}
+html.dark .role-link{color:#aeced6}
+html.dark .role-link:hover{color:#77f6e6}
+html.dark .company-name{color:#84948e}
+html.dark .rank-score{background:#163416;color:#89ba95}
+html.dark .rank-score.secondary{background:#232323;color:#889980}
+html.dark .empty-next{background:#1f2e16;border:1px dashed #2c5926;color:#99c0b2}
+html.dark .empty-next p{color:#819886}
+html.dark .empty-next a{color:#77f6e6}
+html.dark .table-empty h3{color:#8cafa1}
+html.dark .table-empty p{color:#84958c}
+html.dark .muted{color:#84958d}
+html.dark .board-column{background:#212121}
+html.dark .board-card{background:#1c1c1c;border:1px solid #34492b}
+html.dark .board-card p{color:#81978d}
+html.dark .board-card small{color:#7e9b89}
+html.dark .board-card select{border:1px solid #34492b}
+html.dark .board-note{color:#839584}
+html.dark footer{color:#86928a}
+html.dark .back-link{color:#7c9f95}
+html.dark .form-section-heading p{color:#829689}
+html.dark .section-number{background:#202f17;color:#7a9e7e}
+html.dark .field-hint{color:#84958a}
+html.dark .validation-summary{background:#3b0e05;border:1px solid #821b07;color:#cf6d5b}
+html.dark .error-text{color:#d25046}
+html.dark .detail-facts dt{color:#82968a}
+html.dark .detail-facts dd{color:#9bbbad}
+html.dark .external-link{color:#77f6e6}
+html.dark .detail-ranking strong{color:#86c1a6}
+html.dark .history li{border-left:2px solid #2e5225}
+html.dark .history strong{color:#8ebaa2}
+html.dark .history span{color:#849881}
+html.dark .archive-button{border:1px solid #38502c;color:#879a7e}
+html.dark .archive-button:hover{background:#223416}
+html.dark .archive-banner,html.dark .success-message{background:#22400d;color:#8bb37a}
+html.dark .success-message{background:#09421e;color:#75ce9d}
+html.dark .extra-field-row{background:#202020}
+html.dark .csv-preview td::before{color:#90a7b0}
+html.dark .detail-list{color:#9bbbad}
+html.dark .detail-list li::marker{color:#75a48f}
+html.dark .link-running{background:#462e04;color:#d4a752}
+html.dark .link-done{background:#08441a;color:#71d3a1}
+html.dark .link-failed{background:#321414;color:#aa6e73}

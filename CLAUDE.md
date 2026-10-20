@@ -1,6 +1,6 @@
 # Jacker
 
-Delivery: local-only (no remote). Commit on the default branch; nothing is pushed. (Its only branch is `local`.)
+Delivery: direct push. Remote `origin` is github.com/loki495/jacker (public); `main` mirrors what is published and `local` is the permanent local branch. Confirm the exact remote and branch before every push.
 
 Private single-user job tracker. Laravel 13, PHP 8.5, SQLite, Livewire 4 single-file class components, free Flux UI 2, Tailwind 4/Vite. Read `AGENTS.md` and `.claude/project.md` for operational rules; `README.md` documents setup and security configuration.
 

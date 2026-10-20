@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="light">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? config('app.name') }}</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    @fluxAppearance
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
@@ -24,7 +25,7 @@
             <div class="sidebar-note"><span class="status-dot"></span>{{ __('jobs.private_workspace') }}<p>{{ __('jobs.manual_control') }}</p></div>
         </aside>
         <div class="main-shell">
-            <header class="topbar"><span>{{ __('jobs.workspace') }} <span class="topbar-divider">/</span> {{ __('jobs.job_search') }}</span><span class="personal-label"><span class="avatar">A</span>{{ __('jobs.personal') }}</span></header>
+            <header class="topbar"><span>{{ __('jobs.workspace') }} <span class="topbar-divider">/</span> {{ __('jobs.job_search') }}</span><span class="topbar-end"><flux:radio.group x-data variant="segmented" size="sm" x-model="$flux.appearance" :aria-label="__('jobs.appearance')"><flux:radio value="light" icon="sun" :aria-label="__('jobs.appearance_light')" /><flux:radio value="dark" icon="moon" :aria-label="__('jobs.appearance_dark')" /><flux:radio value="system" icon="computer-desktop" :aria-label="__('jobs.appearance_system')" /></flux:radio.group><span class="personal-label"><span class="avatar">A</span>{{ __('jobs.personal') }}</span></span></header>
             <main class="main-content">{{ $slot }}</main>
             <footer>{{ __('jobs.footer') }}</footer>
         </div>

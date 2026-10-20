@@ -55,6 +55,8 @@ SQLite defaults to `database/database.sqlite`. Back up the database together wit
 
 The default order is skill match plus desirability, highest first.
 
+The top bar has a light, dark and match-system theme switch; the choice is remembered in the browser. The dark styles live in `resources/css/dark.css`, which overrides the light colours in `resources/css/app.css`: add a matching rule there when you add a coloured rule to `app.css`.
+
 **Link checks** (sidebar) fetch an application page in the background to see whether it is still live (404/410 are flagged as gone; sites that refuse automated requests, such as LinkedIn, are flagged as blocked) and fill in only the fields that are still empty from the page's structured job data (schema.org JobPosting). Nothing existing is overwritten and a dead link never changes a job's status. Check one job from its page, all active jobs from the log page, or paste job page links on the log page to create new listings from them. Checks are spaced a few seconds apart (`LINKCHECK_SPACING`), never run on a schedule, and refuse private or reserved network addresses.
 
 Set `APP_TIMEZONE` to your local IANA timezone for status-history timestamps and daily follow-up boundaries. The portable default is `UTC`; tests explicitly use UTC and separately exercise timezone conversions.
