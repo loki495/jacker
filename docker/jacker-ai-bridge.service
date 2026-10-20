@@ -1,0 +1,13 @@
+[Unit]
+Description=Jacker AI bridge: runs queued "Read with AI" requests in one-off Sessioneer sessions
+After=docker.service
+
+[Service]
+Type=simple
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/www/personal/jacker/bin/ai-bridge --loop
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
