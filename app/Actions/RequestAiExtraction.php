@@ -8,16 +8,19 @@ use App\Enums\LinkCheckStatus;
 use App\Models\AiRequest;
 use App\Models\LinkCheck;
 
-final class RequestAiExtraction
+final readonly class RequestAiExtraction
 {
-    /** Queues one extraction for a link check that kept page text, whether or not structured data was found; null when there is no text or one is already pending. */
+    public function __construct(private RequestPageRender $render) {}
+
+    /** Queues one extraction for a link check, preceded by a browser render of its link when it has one, so the model reads the rendered text; null when there is neither saved text nor a renderable link, or an extraction is already pending. */
     public function handle(LinkCheck $check): ?AiRequest
     {
-        if (blank($check->page_text)) {
-            return null;
-        }
         $pending = AiRequest::query()->where('link_check_id', $check->id)->where('kind', AiRequest::KIND_EXTRACT)->whereIn('status', [LinkCheckStatus::Queued, LinkCheckStatus::Running])->exists();
         if ($pending) {
+            return null;
+        }
+        $render = $this->render->handle($check);
+        if (! $render instanceof AiRequest && blank($check->page_text)) {
             return null;
         }
 

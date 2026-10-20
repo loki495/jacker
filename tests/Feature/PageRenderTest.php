@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Actions\ClaimAiRequest;
 use App\Actions\ClaimPageRender;
 use App\Actions\CompletePageRender;
+use App\Actions\RequestAiExtraction;
 use App\Actions\RequestPageRender;
 use App\Enums\LinkCheckStatus;
 use App\Models\AiRequest;
@@ -64,16 +66,38 @@ it('answers render:allow and drives claim and complete through artisan', functio
     $this->artisan('render:complete', ['id' => $render->id, '--fail' => 'again'])->assertFailed();
 });
 
-it('shows the render button and state in the log without mixing it with the AI state', function (): void {
+it('queues the render before the AI pass from one button and holds the extraction until the render ends', function (): void {
     $check = checkFor('https://jobs.example/1');
-    $page = Livewire::test('pages::link-checks')->assertSee(__('jobs.render_page'))->call('renderPage', $check->id)->assertSee(__('jobs.render_state_queued'))->assertDontSee(__('jobs.render_page'))->assertDontSee('AI: ');
-    $page->call('renderPage', $check->id)->assertSee(__('jobs.render_not_eligible'));
-    $render = AiRequest::query()->firstOrFail();
-    $render->update(['status' => LinkCheckStatus::Running]);
-    $page->call('$refresh')->assertSee(__('jobs.render_state_running'));
-    app(CompletePageRender::class)->handle($render->load('linkCheck'), 'Rendered posting text');
-    $page->call('$refresh')->assertSee(__('jobs.render_state_done', ['message' => $render->refresh()->message]))->assertSee(__('jobs.render_page'))->assertSee(__('jobs.ai_extract'));
+    $page = Livewire::test('pages::link-checks')->assertSee(__('jobs.ai_extract'))->call('readWithAi', $check->id)
+        ->assertSee(__('jobs.render_state_queued'))->assertSee(__('jobs.ai_state_queued'))->assertDontSee(__('jobs.ai_extract'));
+    $render = AiRequest::query()->where('kind', 'render')->firstOrFail();
+    expect(AiRequest::query()->where('kind', 'extract')->count())->toBe(1)->and(app(ClaimAiRequest::class)->handle())->toBeNull();
 
-    Livewire::test('pages::link-checks')->call('renderPage', 9999)->assertSee(__('jobs.render_not_eligible'));
-    expect(AiRequest::query()->where('kind', 'extract')->count())->toBe(0);
+    app(ClaimPageRender::class)->handle();
+    expect(app(ClaimAiRequest::class)->handle())->toBeNull();
+    app(CompletePageRender::class)->handle($render->refresh()->load('linkCheck'), 'Rendered posting text');
+    $claimed = app(ClaimAiRequest::class)->handle();
+    expect($claimed['prompt'])->toContain("=====PAGE=====\nRendered posting text\n=====END PAGE=====");
+    $page->call('$refresh')->assertSee(__('jobs.render_state_done', ['message' => $render->refresh()->message]));
+});
+
+it('still runs the AI pass on the old text when the render fails, and skips the render for saved text', function (): void {
+    $check = checkFor('https://jobs.example/1');
+    app(RequestAiExtraction::class)->handle($check);
+    $render = AiRequest::query()->where('kind', 'render')->firstOrFail();
+    $render->update(['status' => LinkCheckStatus::Running]);
+    app(CompletePageRender::class)->fail($render, 'timed out');
+    expect(app(ClaimAiRequest::class)->handle()['prompt'])->toContain("=====PAGE=====\nJobs\n=====END PAGE=====");
+
+    app(RequestAiExtraction::class)->handle(checkFor('', 'saved'));
+    expect(AiRequest::query()->where('kind', 'render')->count())->toBe(1);
+    expect(app(RequestAiExtraction::class)->handle(LinkCheck::query()->create(['kind' => 'saved', 'url' => '', 'status' => LinkCheckStatus::Done])))->toBeNull();
+});
+
+it('keeps the latest render and the latest AI request apart when one is newer than the other', function (): void {
+    $check = checkFor('https://jobs.example/1');
+    $extract = AiRequest::query()->create(['link_check_id' => $check->id, 'kind' => 'extract']);
+    $render = AiRequest::query()->create(['link_check_id' => $check->id, 'kind' => 'render']);
+    $fresh = LinkCheck::query()->with('latestAiRequest', 'latestRenderRequest')->findOrFail($check->id);
+    expect($fresh->latestAiRequest->id)->toBe($extract->id)->and($fresh->latestRenderRequest->id)->toBe($render->id);
 });

@@ -9,9 +9,13 @@ use App\Enums\LinkCheckStatus;
 use App\Enums\PayPeriod;
 use App\Enums\WorkArrangement;
 use App\Models\AiRequest;
+use App\Models\Opportunity;
 
 final readonly class CompleteAiRequest
 {
+    /** Long text fields an explicit AI pass may replace; the earlier values are kept on the request. */
+    private const array REPLACEABLE = ['benefits', 'responsibilities', 'requirements', 'hours'];
+
     private const array TEXT = ['title', 'company', 'company_url', 'location', 'benefits', 'responsibilities', 'requirements', 'hours'];
 
     public function __construct(private RunLinkCheck $applier) {}
@@ -30,8 +34,19 @@ final readonly class CompleteAiRequest
 
             return;
         }
-        $this->applier->applyFields($request->linkCheck, $fields);
-        $request->update(['status' => LinkCheckStatus::Done, 'message' => $request->linkCheck->message, 'finished_at' => now()]);
+        $opportunity = $request->linkCheck->opportunity;
+        $previous = [];
+        if ($opportunity instanceof Opportunity) {
+            foreach (self::REPLACEABLE as $key) {
+                $old = $opportunity->getAttribute($key);
+                if (isset($fields[$key]) && filled($old) && $old !== $fields[$key]) {
+                    $previous[$key] = $old;
+                }
+            }
+        }
+        $this->applier->applyFields($request->linkCheck, $fields, self::REPLACEABLE);
+        $replaced = array_intersect_key($previous, array_flip($request->linkCheck->filled ?? []));
+        $request->update(['status' => LinkCheckStatus::Done, 'message' => $request->linkCheck->message, 'replaced' => $replaced ?: null, 'finished_at' => now()]);
     }
 
     /** @return array<string, mixed> */

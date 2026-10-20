@@ -58,13 +58,13 @@ class LinkCheck extends Model
     /** @return HasOne<AiRequest, $this> */
     public function latestAiRequest(): HasOne
     {
-        return $this->hasOne(AiRequest::class)->where('kind', AiRequest::KIND_EXTRACT)->latestOfMany();
+        return $this->hasOne(AiRequest::class)->ofMany(['id' => 'max'], fn ($query) => $query->where('kind', AiRequest::KIND_EXTRACT));
     }
 
     /** @return HasOne<AiRequest, $this> */
     public function latestRenderRequest(): HasOne
     {
-        return $this->hasOne(AiRequest::class)->where('kind', AiRequest::KIND_RENDER)->latestOfMany();
+        return $this->hasOne(AiRequest::class)->ofMany(['id' => 'max'], fn ($query) => $query->where('kind', AiRequest::KIND_RENDER));
     }
 
     /** @return BelongsTo<Opportunity, $this> */

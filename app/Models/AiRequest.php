@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $model
  * @property string|null $output
  * @property string|null $message
+ * @property array<string, string>|null $replaced
  * @property Carbon|null $started_at
  * @property Carbon|null $finished_at
  */
@@ -33,7 +34,7 @@ class AiRequest extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['status' => LinkCheckStatus::class, 'started_at' => 'datetime', 'finished_at' => 'datetime'];
+        return ['status' => LinkCheckStatus::class, 'replaced' => 'array', 'started_at' => 'datetime', 'finished_at' => 'datetime'];
     }
 
     /** @return BelongsTo<LinkCheck, $this> */

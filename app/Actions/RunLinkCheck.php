@@ -81,20 +81,26 @@ final readonly class RunLinkCheck
         $this->applyFields($check, $fields);
     }
 
-    /** @param array<string, mixed> $fields */
-    public function applyFields(LinkCheck $check, array $fields): void
+    /**
+     * @param  array<string, mixed>  $fields
+     * @param  list<string>  $replace  Keys that may overwrite a value the job already has.
+     */
+    public function applyFields(LinkCheck $check, array $fields, array $replace = []): void
     {
         if (isset($fields['company_url']) && ! filter_var($fields['company_url'], FILTER_VALIDATE_URL)) {
             unset($fields['company_url']);
         }
         $opportunity = $check->opportunity;
-        $opportunity instanceof Opportunity ? $this->fill($check, $opportunity, $fields) : $this->create($check, $fields);
+        $opportunity instanceof Opportunity ? $this->fill($check, $opportunity, $fields, $replace) : $this->create($check, $fields);
     }
 
-    /** @param array<string, mixed> $fields */
-    private function fill(LinkCheck $check, Opportunity $opportunity, array $fields): void
+    /**
+     * @param  array<string, mixed>  $fields
+     * @param  list<string>  $replace
+     */
+    private function fill(LinkCheck $check, Opportunity $opportunity, array $fields, array $replace): void
     {
-        $fill = array_filter($fields, fn (string $key): bool => ! in_array($key, ['company', ...self::SALARY], true) && $this->isEmpty($opportunity->{$key}), ARRAY_FILTER_USE_KEY);
+        $fill = array_filter($fields, fn (string $key): bool => ! in_array($key, ['company', ...self::SALARY], true) && ($this->isEmpty($opportunity->{$key}) || in_array($key, $replace, true)), ARRAY_FILTER_USE_KEY);
         if (isset($fields['salary_min']) || isset($fields['salary_max'])) {
             if ($opportunity->salary_min === null && $opportunity->salary_max === null) {
                 $fill += array_intersect_key($fields, array_flip(self::SALARY));

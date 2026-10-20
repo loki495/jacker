@@ -18,10 +18,14 @@ use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
+beforeEach(function (): void {
+    app()->instance(UrlGuard::class, new UrlGuard(fn (string $host): array => ['93.184.216.34']));
+});
+
 function noDataCheck(?Opportunity $opportunity = null): LinkCheck
 {
     return LinkCheck::query()->create([
-        'opportunity_id' => $opportunity?->id, 'kind' => $opportunity instanceof Opportunity ? 'check' : 'import', 'url' => 'https://jobs.example/p/1',
+        'opportunity_id' => $opportunity?->id, 'kind' => $opportunity instanceof Opportunity ? 'check' : 'import', 'url' => '',
         'status' => LinkCheckStatus::Failed, 'page_text' => "Acme\nWelcome", 'message' => 'no data',
     ]);
 }
@@ -119,4 +123,16 @@ it('keeps the page text of a page with structured data and allows an AI pass tha
     $request->update(['status' => LinkCheckStatus::Running]);
     app(CompleteAiRequest::class)->handle($request->load('linkCheck.opportunity'), json_encode(['title' => 'Overwrite', 'location' => 'Austin, TX']));
     expect($job->refresh()->title)->toBe('Mine')->and($job->location)->toBe('Austin, TX');
+});
+
+it('lets an explicit AI pass replace long text fields and keeps the earlier values', function (): void {
+    $job = Opportunity::factory()->create(['title' => 'Keep me', 'location' => 'Keep too', 'responsibilities' => 'Old cut-off text', 'requirements' => null, 'benefits' => 'Same']);
+    $request = app(RequestAiExtraction::class)->handle(noDataCheck($job));
+    $request->update(['status' => LinkCheckStatus::Running]);
+    app(CompleteAiRequest::class)->handle($request->load('linkCheck.opportunity'), json_encode(['title' => 'Overwrite', 'location' => 'Overwrite', 'responsibilities' => "Full\nlist", 'requirements' => 'New reqs', 'benefits' => 'Same']));
+    $job->refresh();
+    expect($job->title)->toBe('Keep me')->and($job->location)->toBe('Keep too')->and($job->responsibilities)->toBe("Full\nlist")->and($job->requirements)->toBe('New reqs')
+        ->and($request->refresh()->replaced)->toBe(['responsibilities' => 'Old cut-off text']);
+
+    Livewire::test('pages::link-checks')->assertSee(__('jobs.ai_replaced', ['fields' => 'responsibilities']))->assertSee('Old cut-off text');
 });
