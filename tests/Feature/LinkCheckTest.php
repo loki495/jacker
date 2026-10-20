@@ -7,6 +7,7 @@ use App\Actions\RunLinkCheck;
 use App\Enums\LinkCheckStatus;
 use App\Enums\LinkResult;
 use App\Jobs\ProcessLinkCheck;
+use App\Models\AiRequest;
 use App\Models\LinkCheck;
 use App\Models\Opportunity;
 use App\Services\JobPageFetcher;
@@ -179,4 +180,22 @@ it('shows log links as new-tab anchors only for web urls', function (): void {
     Livewire::test('pages::link-checks')
         ->assertSeeHtml('href="https://jobs.example/one" target="_blank" rel="noopener noreferrer"')
         ->assertDontSeeHtml('href="javascript:alert(1)"');
+});
+
+it('clears finished log entries by age and keeps pending ones and jobs', function (): void {
+    $job = Opportunity::factory()->create();
+    $old = LinkCheck::query()->create(['url' => 'https://a.example', 'kind' => 'check', 'status' => LinkCheckStatus::Done, 'opportunity_id' => $job->id]);
+    $old->forceFill(['created_at' => now()->subDays(40)])->saveQuietly();
+    $recent = LinkCheck::query()->create(['url' => 'https://b.example', 'kind' => 'check', 'status' => LinkCheckStatus::Failed]);
+    $queued = LinkCheck::query()->create(['url' => 'https://c.example', 'kind' => 'check', 'status' => LinkCheckStatus::Queued]);
+    $queued->forceFill(['created_at' => now()->subDays(40)])->saveQuietly();
+    $waiting = LinkCheck::query()->create(['url' => 'https://d.example', 'kind' => 'saved', 'status' => LinkCheckStatus::Done, 'page_text' => 'x']);
+    $waiting->forceFill(['created_at' => now()->subDays(40)])->saveQuietly();
+    AiRequest::query()->create(['link_check_id' => $waiting->id, 'kind' => AiRequest::KIND_EXTRACT, 'status' => LinkCheckStatus::Queued]);
+
+    Livewire::test('pages::link-checks')->call('clearOld')->assertSee(__('jobs.link_cleared', ['count' => 1]));
+    expect(LinkCheck::query()->pluck('id')->all())->toEqualCanonicalizing([$recent->id, $queued->id, $waiting->id])->and(Opportunity::query()->count())->toBe(1);
+
+    Livewire::test('pages::link-checks')->set('clearDays', '0')->call('clearOld')->assertSee(__('jobs.link_cleared', ['count' => 1]));
+    expect(LinkCheck::query()->pluck('id')->all())->toEqualCanonicalizing([$queued->id, $waiting->id]);
 });
