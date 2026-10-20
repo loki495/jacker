@@ -198,7 +198,7 @@ return [
     'link_clear_30' => 'Older than 30 days',
     'link_clear_7' => 'Older than 7 days',
     'link_clear_all' => 'All finished',
-    'link_clear_confirm' => 'Delete these log entries? Jobs are not affected. Queued, running and AI-pending checks are kept.',
+    'link_clear_confirm' => 'Delete these log entries? Jobs are not affected. Queued and running checks are kept; a waiting AI request is cancelled with its check.',
     'link_cleared' => ':count log entries cleared.',
     'link_checks_intro' => 'Checks run in the background, a few seconds apart. This page refreshes itself. Add links or saved pages from Import.',
     'link_check_all' => 'Check all active jobs',

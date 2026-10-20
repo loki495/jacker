@@ -30,7 +30,7 @@ new #[Layout('layouts.app')] class extends Component
         $days = (int) $this->clearDays;
         $deleted = LinkCheck::query()
             ->whereIn('status', [LinkCheckStatus::Done, LinkCheckStatus::Failed])
-            ->whereDoesntHave('aiRequests', fn ($query) => $query->whereIn('status', ['queued', 'running']))
+            ->whereDoesntHave('aiRequests', fn ($query) => $query->where('status', LinkCheckStatus::Running))
             ->when($days > 0, fn ($query) => $query->where('created_at', '<', now()->subDays($days)))
             ->delete();
         $this->message = __('jobs.link_cleared', ['count' => $deleted]);

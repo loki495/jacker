@@ -191,11 +191,13 @@ it('clears finished log entries by age and keeps pending ones and jobs', functio
     $queued->forceFill(['created_at' => now()->subDays(40)])->saveQuietly();
     $waiting = LinkCheck::query()->create(['url' => 'https://d.example', 'kind' => 'saved', 'status' => LinkCheckStatus::Done, 'page_text' => 'x']);
     $waiting->forceFill(['created_at' => now()->subDays(40)])->saveQuietly();
-    AiRequest::query()->create(['link_check_id' => $waiting->id, 'kind' => AiRequest::KIND_EXTRACT, 'status' => LinkCheckStatus::Queued]);
+    AiRequest::query()->create(['link_check_id' => $waiting->id, 'kind' => AiRequest::KIND_EXTRACT, 'status' => LinkCheckStatus::Running]);
+    $cancelled = LinkCheck::query()->create(['url' => 'https://e.example', 'kind' => 'saved', 'status' => LinkCheckStatus::Done, 'page_text' => 'x']);
+    AiRequest::query()->create(['link_check_id' => $cancelled->id, 'kind' => AiRequest::KIND_EXTRACT, 'status' => LinkCheckStatus::Queued]);
 
     Livewire::test('pages::link-checks')->call('clearOld')->assertSee(__('jobs.link_cleared', ['count' => 1]));
-    expect(LinkCheck::query()->pluck('id')->all())->toEqualCanonicalizing([$recent->id, $queued->id, $waiting->id])->and(Opportunity::query()->count())->toBe(1);
+    expect(LinkCheck::query()->pluck('id')->all())->toEqualCanonicalizing([$recent->id, $queued->id, $waiting->id, $cancelled->id])->and(Opportunity::query()->count())->toBe(1);
 
-    Livewire::test('pages::link-checks')->set('clearDays', '0')->call('clearOld')->assertSee(__('jobs.link_cleared', ['count' => 1]));
-    expect(LinkCheck::query()->pluck('id')->all())->toEqualCanonicalizing([$queued->id, $waiting->id]);
+    Livewire::test('pages::link-checks')->set('clearDays', '0')->call('clearOld')->assertSee(__('jobs.link_cleared', ['count' => 2]));
+    expect(LinkCheck::query()->pluck('id')->all())->toEqualCanonicalizing([$queued->id, $waiting->id])->and(AiRequest::query()->where('link_check_id', $cancelled->id)->exists())->toBeFalse();
 });
