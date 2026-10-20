@@ -53,7 +53,7 @@ it('fails an empty render and a request whose address turned private, without to
 });
 
 it('answers render:allow and drives claim and complete through artisan', function (): void {
-    $this->artisan('render:allow', ['url' => 'https://jobs.example/a'])->assertSuccessful();
+    $this->artisan('render:allow', ['url' => 'https://jobs.example/a'])->expectsOutput('93.184.216.34')->assertSuccessful();
     $this->artisan('render:allow', ['url' => 'http://internal.test/a'])->assertFailed();
     $this->artisan('render:allow', ['url' => 'file:///etc/passwd'])->assertFailed();
 

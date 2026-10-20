@@ -1,12 +1,13 @@
 // Renders one page in headless Chromium and prints its visible text on stdout.
-// Usage: node render.mjs <url>. Every request the browser makes (redirects and scripts included) is
-// vetted by the app's UrlGuard through `render:allow`; images, media, fonts and stylesheets are not loaded.
+// Usage: node render.mjs <url>. All browser traffic (redirects, scripts, WebSockets) goes through proxy.mjs, which
+// connects only to addresses the app's UrlGuard approved through `render:allow`; images, media, fonts and stylesheets are not loaded.
 import { execFile } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { chromium } from 'playwright-core';
+import { startProxy } from './proxy.mjs';
 
 const run = promisify(execFile);
 const container = process.env.JACKER_CONTAINER ?? 'jacker-app';
@@ -28,35 +29,40 @@ function chromePath() {
     throw new Error('No Chromium found; set RENDER_CHROME');
 }
 
-const verdicts = new Map();
-function allowed(target) {
-    let host;
-    try {
-        const parsed = new URL(target);
-        if (!['http:', 'https:'].includes(parsed.protocol)) return Promise.resolve(false);
-        host = parsed.origin;
-    } catch {
-        return Promise.resolve(false);
+const vetted = new Map();
+// Resolves through the app's UrlGuard (render:allow prints the public addresses, or exits 1); the proxy connects to those.
+function vet(host) {
+    if (!vetted.has(host)) {
+        const target = `https://${host.includes(':') ? `[${host}]` : host}`;
+        vetted.set(host, run('docker', ['exec', '--user', 'www-data', container, 'php', 'artisan', 'render:allow', target]).then(({ stdout }) => {
+            const addresses = stdout.split('\n').map((line) => line.trim()).filter(Boolean);
+            if (addresses.length === 0) throw new Error('not public');
+            return addresses;
+        }));
     }
-    if (!verdicts.has(host)) {
-        verdicts.set(host, run('docker', ['exec', '--user', 'www-data', container, 'php', 'artisan', 'render:allow', host]).then(() => true, () => false));
-    }
-    return verdicts.get(host);
+    return vetted.get(host);
 }
 
-const browser = await chromium.launch({ executablePath: chromePath(), headless: true, args: ['--no-sandbox'] });
+const proxy = await startProxy(vet);
+// ponytail: --no-sandbox only when RENDER_NO_SANDBOX=1 (needed where unprivileged user namespaces are off)
+const browser = await chromium.launch({
+    executablePath: chromePath(),
+    headless: true,
+    args: [`--proxy-server=http://127.0.0.1:${proxy.address().port}`, '--proxy-bypass-list=<-loopback>', ...(process.env.RENDER_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])],
+});
 try {
     const context = await browser.newContext({ acceptDownloads: false, serviceWorkers: 'block' });
-    await context.route('**/*', async (route) => {
-        const request = route.request();
-        if (['image', 'media', 'font', 'stylesheet'].includes(request.resourceType())) return route.abort();
-        return (await allowed(request.url())) ? route.continue() : route.abort('blockedbyclient');
-    });
+    await context.route('**/*', (route) => (['image', 'media', 'font', 'stylesheet'].includes(route.request().resourceType()) ? route.abort() : route.continue()));
     const page = await context.newPage();
-    if (!(await allowed(url))) throw new Error('The address is not public.');
+    const target = new URL(url);
+    if (!['http:', 'https:'].includes(target.protocol)) throw new Error('The address is not public.');
+    await vet(target.hostname.replace(/^\[|\]$/g, '')).catch(() => {
+        throw new Error('The address is not public.');
+    });
     const response = await page.goto(url, { waitUntil: 'networkidle', timeout });
     if (response && response.status() >= 400) throw new Error(`The site answered HTTP ${response.status()}.`);
     process.stdout.write(await page.evaluate(() => document.body.innerText));
 } finally {
     await browser.close();
+    proxy.close();
 }

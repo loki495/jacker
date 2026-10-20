@@ -14,17 +14,19 @@ final class RenderAllow extends Command
     protected $signature = 'render:allow {url : Address the host-side browser wants to load}';
 
     #[\Override]
-    protected $description = 'Exit 0 when the address is public and may be loaded by the page renderer, 1 when it is private, reserved or not http(s).';
+    protected $description = 'Print the public addresses the page renderer may connect to for this URL (one per line), or exit 1 when it is private, reserved, unresolvable or not http(s).';
 
     public function handle(UrlGuard $guard): int
     {
         try {
-            $guard->assertPublic((string) $this->argument('url'));
+            $addresses = $guard->assertPublic((string) $this->argument('url'));
         } catch (InvalidArgumentException $exception) {
             $this->error($exception->getMessage());
 
             return self::FAILURE;
         }
+
+        $this->line(implode("\n", $addresses));
 
         return self::SUCCESS;
     }
