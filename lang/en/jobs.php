@@ -255,6 +255,7 @@ return [
     'ai_state_running' => 'AI: reading the page…',
     'ai_state_done' => 'AI: :message',
     'ai_state_failed' => 'AI failed: :message',
+    'ai_raw_reply' => 'Raw reply',
     'ai_extract' => 'Read with AI',
     'ai_queued' => 'AI request queued. It runs when the host bridge next runs.',
     'ai_not_eligible' => 'This check cannot be read with AI (no page text, already filled, or a request is pending).',

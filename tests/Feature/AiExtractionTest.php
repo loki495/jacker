@@ -93,7 +93,8 @@ it('shows the AI request state in the log from pending to its result', function 
     $page->call('$refresh')->assertSee(__('jobs.ai_state_running'))->assertDontSee(__('jobs.ai_extract'));
 
     app(CompleteAiRequest::class)->handle($request->load('linkCheck'), 'Sorry, I cannot do that.');
-    $page->call('$refresh')->assertSee(__('jobs.ai_state_failed', ['message' => __('jobs.ai_bad_output')]))->assertSee(__('jobs.ai_extract'));
+    $page->call('$refresh')->assertSee(__('jobs.ai_state_failed', ['message' => __('jobs.ai_bad_output')]))->assertSee(__('jobs.ai_extract'))
+        ->assertSee(__('jobs.ai_raw_reply'))->assertSee('Sorry, I cannot do that.');
 
     app(RequestAiExtraction::class)->handle($check->refresh());
     $second = AiRequest::query()->latest('id')->firstOrFail();
