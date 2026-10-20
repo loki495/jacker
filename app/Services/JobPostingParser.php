@@ -42,6 +42,15 @@ final class JobPostingParser
         return array_filter($fields, fn (mixed $value): bool => $value !== null && $value !== '');
     }
 
+    /** True when the page's JobPosting says it was valid only until a date that has passed. */
+    public function expired(string $html): bool
+    {
+        $until = $this->findPosting($html)['validThrough'] ?? null;
+        $time = is_string($until) ? strtotime($until) : false;
+
+        return $time !== false && $time < time();
+    }
+
     /** @return array<string, mixed>|null */
     private function findPosting(string $html): ?array
     {

@@ -6,10 +6,14 @@ namespace App\Actions;
 
 use App\Enums\LinkCheckStatus;
 use App\Enums\LinkResult;
+use App\Enums\OpportunityStatus;
 use App\Models\LinkCheck;
 use App\Models\Opportunity;
+use App\Services\GoneDetector;
+use App\Services\JobBoardApi;
 use App\Services\JobPageFetcher;
 use App\Services\JobPostingParser;
+use App\Services\PageText;
 use GuzzleHttp\Exception\TransferException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +28,10 @@ final readonly class RunLinkCheck
     public function __construct(
         private JobPageFetcher $fetcher,
         private JobPostingParser $parser,
+        private PageText $text,
+        private ChangeOpportunityStatus $close,
+        private JobBoardApi $boards,
+        private GoneDetector $gone,
         private SaveOpportunity $save,
     ) {}
 
@@ -32,13 +40,20 @@ final readonly class RunLinkCheck
         $check->update(['status' => LinkCheckStatus::Running, 'started_at' => now()]);
         $opportunity = $check->opportunity;
         try {
-            $page = $this->fetcher->fetch($check->url);
+            $board = $this->boards->lookup($check->url);
+            $page = $board === null ? $this->fetcher->fetch($check->url) : null;
         } catch (InvalidArgumentException|ConnectionException|TransferException|\RuntimeException $exception) {
             $this->finish($check, $opportunity, LinkCheckStatus::Failed, LinkResult::Error, $exception->getMessage());
 
             return;
         }
 
+        if ($board !== null) {
+            $check->http_status = 200;
+            $board['gone'] ? $this->finish($check, $opportunity, LinkCheckStatus::Done, LinkResult::Dead, __('jobs.link_board_gone')) : $this->applyFields($check, $board['fields']);
+
+            return;
+        }
         $result = match (true) {
             $page['status'] >= 200 && $page['status'] < 300 => LinkResult::Ok,
             in_array($page['status'], [404, 410], true) => LinkResult::Dead,
@@ -53,9 +68,26 @@ final readonly class RunLinkCheck
         }
 
         $fields = $this->parser->parse($page['body']);
+        $text = $fields === [] ? $this->text->extract($page['body'], (int) config('linkcheck.max_text_chars')) : '';
+        $gone = $fields === [] ? $this->gone->detect($page['body'], $text) : ($this->parser->expired($page['body']) ? __('jobs.link_expired') : null);
+        if ($gone !== null) {
+            $this->finish($check, $opportunity, LinkCheckStatus::Done, LinkResult::Dead, $gone);
+
+            return;
+        }
+        if ($fields === []) {
+            $check->page_text = $text;
+        }
+        $this->applyFields($check, $fields);
+    }
+
+    /** @param array<string, mixed> $fields */
+    public function applyFields(LinkCheck $check, array $fields): void
+    {
         if (isset($fields['company_url']) && ! filter_var($fields['company_url'], FILTER_VALIDATE_URL)) {
             unset($fields['company_url']);
         }
+        $opportunity = $check->opportunity;
         $opportunity instanceof Opportunity ? $this->fill($check, $opportunity, $fields) : $this->create($check, $fields);
     }
 
@@ -93,7 +125,7 @@ final readonly class RunLinkCheck
             return;
         }
         try {
-            $opportunity = $this->save->handle($fields + ['application_url' => $check->url, 'source' => __('jobs.url_import_source')]);
+            $opportunity = $this->save->handle($fields + (filter_var($check->url, FILTER_VALIDATE_URL) ? ['application_url' => $check->url] : []) + ['source' => $check->kind === LinkCheck::KIND_SAVED ? __('jobs.saved_import_source') : __('jobs.url_import_source')]);
         } catch (ValidationException $exception) {
             $this->finish($check, null, LinkCheckStatus::Failed, LinkResult::Ok, implode(' ', $exception->validator->errors()->all()));
 
@@ -107,7 +139,12 @@ final readonly class RunLinkCheck
     private function finish(LinkCheck $check, ?Opportunity $opportunity, LinkCheckStatus $status, LinkResult $result, string $message): void
     {
         $check->fill(['status' => $status, 'result' => $result, 'message' => $message, 'finished_at' => now()])->save();
-        $opportunity?->forceFill(['link_status' => $result->value, 'link_checked_at' => now()])->saveQuietly();
+        if ($check->kind !== LinkCheck::KIND_SAVED) {
+            $opportunity?->forceFill(['link_status' => $result->value, 'link_checked_at' => now()])->saveQuietly();
+        }
+        if ($result === LinkResult::Dead && $opportunity?->has_applied === false && in_array($opportunity->status, [OpportunityStatus::Saved, OpportunityStatus::Preparing], true)) {
+            $this->close->handle($opportunity, OpportunityStatus::Closed);
+        }
     }
 
     private function isEmpty(mixed $value): bool

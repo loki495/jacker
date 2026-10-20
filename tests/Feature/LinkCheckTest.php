@@ -80,13 +80,13 @@ it('fills only empty fields on an existing job and never overwrites', function (
     expect($check->refresh()->status)->toBe(LinkCheckStatus::Done)->and($check->filled)->not->toContain('benefits');
 });
 
-it('flags dead and blocked links without touching job data', function (int $status, LinkResult $result, LinkCheckStatus $state): void {
+it('closes unapplied jobs on dead links and only flags blocked or errored ones', function (int $status, LinkResult $result, LinkCheckStatus $state): void {
     Http::fake(['*' => Http::response('nope', $status)]);
     $job = Opportunity::factory()->create(['application_url' => 'https://jobs.example/2', 'title' => 'Same']);
     $check = LinkCheck::query()->create(['kind' => 'check', 'url' => $job->application_url, 'opportunity_id' => $job->id, 'status' => LinkCheckStatus::Queued]);
     app(RunLinkCheck::class)->handle($check);
     expect($check->refresh()->result)->toBe($result)->and($check->status)->toBe($state)->and($check->http_status)->toBe($status)
-        ->and($job->refresh()->link_status)->toBe($result->value)->and($job->title)->toBe('Same')->and($job->status->value)->not->toBe('closed');
+        ->and($job->refresh()->link_status)->toBe($result->value)->and($job->title)->toBe('Same')->and($job->status->value === 'closed')->toBe($result === LinkResult::Dead);
 })->with([[404, LinkResult::Dead, LinkCheckStatus::Done], [410, LinkResult::Dead, LinkCheckStatus::Done], [403, LinkResult::Blocked, LinkCheckStatus::Done], [429, LinkResult::Blocked, LinkCheckStatus::Done], [500, LinkResult::Error, LinkCheckStatus::Failed]]);
 
 it('builds the address pin from the normalised scheme, host and port', function (string $url, string $expected): void {
@@ -163,3 +163,11 @@ it('drives link checks from the log page and the detail page', function (): void
     Livewire::test('pages::detail', ['opportunity' => $job])->call('checkLink')->assertHasNoErrors();
     expect(LinkCheck::query()->where('opportunity_id', $job->id)->count())->toBe(1);
 });
+
+it('leaves applied or in-process jobs open when their link is dead', function (string $status, bool $applied): void {
+    Http::fake(['*' => Http::response('gone', 404)]);
+    $job = Opportunity::factory()->create(['application_url' => 'https://jobs.example/3', 'status' => $status, 'has_applied' => $applied]);
+    $check = LinkCheck::query()->create(['kind' => 'check', 'url' => $job->application_url, 'opportunity_id' => $job->id, 'status' => LinkCheckStatus::Queued]);
+    app(RunLinkCheck::class)->handle($check);
+    expect($job->refresh()->status->value)->toBe($status)->and($job->link_status)->toBe('dead');
+})->with([['applied', true], ['interviewing', true], ['saved', true]]);

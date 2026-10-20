@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Host side of the AI request queue: takes one queued request from the app container, runs it in a
+# one-off Sessioneer session (`--wait` prints the final reply) and hands the reply back. Run on demand;
+# `--loop` keeps polling. Needs docker, jq and `sessioneer` on the host.
+set -euo pipefail
+
+CONTAINER="${JACKER_CONTAINER:-jacker-app}"
+TIMEOUT="${AI_BRIDGE_TIMEOUT:-180}"
+WORKDIR="$(mktemp -d)"
+trap 'rmdir "$WORKDIR" 2>/dev/null || true' EXIT
+artisan() { docker exec -i --user www-data "$CONTAINER" php artisan "$@"; }
+
+work_one() {
+    local job id agent model reply errfile name
+    job="$(artisan ai:claim)"
+    [ -n "$job" ] || return 1
+    id="$(jq -r .id <<<"$job")"; agent="$(jq -r .agent <<<"$job")"; model="$(jq -r .model <<<"$job")"
+    errfile="$(mktemp)"
+    if reply="$(jq -r .prompt <<<"$job" | sessioneer --wait --timeout "$TIMEOUT" --agent "$agent" --model "$model" --workdir "$WORKDIR" - 2>"$errfile")" && [ -n "$reply" ]; then
+        artisan ai:complete "$id" <<<"$reply"
+    else
+        artisan ai:complete "$id" --fail="sessioneer returned no usable reply"
+    fi
+    name="$(head -n1 "$errfile")"; rm -f "$errfile"
+    [ -z "$name" ] || sessioneer --kill "$name" >/dev/null 2>&1 || true
+}
+
+if [ "${1:-}" = "--loop" ]; then
+    while true; do work_one || sleep 5; done
+else
+    while work_one; do :; done
+fi
