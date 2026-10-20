@@ -50,18 +50,25 @@ it('rejects empty content', function (): void {
     expect(fn () => app(ImportSavedPage::class)->handle("  \n "))->toThrow(InvalidArgumentException::class, __('jobs.saved_empty'));
 });
 
-it('imports through the log page from a file or a text area and rejects bad input', function (): void {
+it('imports through the import page from a file or a text area and rejects bad input', function (): void {
     Storage::fake('local');
-    Livewire::test('pages::link-checks')
-        ->set('savedFile', UploadedFile::fake()->createWithContent('job.html', savedPosting()))
-        ->call('importSaved')->assertHasNoErrors();
+    Livewire::test('pages::import')
+        ->set('upload', UploadedFile::fake()->createWithContent('job.html', savedPosting()))
+        ->call('loadUpload')->assertHasNoErrors();
     expect(Opportunity::query()->where('company', 'Acme')->count())->toBe(1);
 
-    Livewire::test('pages::link-checks')->set('savedText', 'Some job text')->call('importSaved')->assertHasNoErrors();
+    Livewire::test('pages::import')->set('savedText', 'Some job text')->call('importSaved')->assertHasNoErrors();
     expect(AiRequest::query()->count())->toBe(1);
 
-    Livewire::test('pages::link-checks')->call('importSaved')->assertHasErrors(['savedText']);
-    Livewire::test('pages::link-checks')->set('savedText', 'x')->set('savedUrl', 'javascript:alert(1)')->call('importSaved')->assertHasErrors(['savedUrl']);
-    Livewire::test('pages::link-checks')->set('savedFile', UploadedFile::fake()->createWithContent('job.exe', 'nope'))->call('importSaved')->assertHasErrors(['savedFile']);
-    Livewire::test('pages::link-checks')->set('savedText', 'x')->set('savedJob', '9999')->call('importSaved')->assertHasErrors(['savedJob']);
+    Livewire::test('pages::import')->call('importSaved')->assertHasErrors(['savedText']);
+    Livewire::test('pages::import')->set('savedText', 'x')->set('savedUrl', 'javascript:alert(1)')->call('importSaved')->assertHasErrors(['savedUrl']);
+    Livewire::test('pages::import')->set('savedText', 'x')->set('savedJob', '9999')->call('importSaved')->assertHasErrors(['savedJob']);
+});
+
+it('routes a csv file to the csv flow and not the saved-page import', function (): void {
+    Storage::fake('local');
+    Livewire::test('pages::import')
+        ->set('upload', UploadedFile::fake()->createWithContent('jobs.csv', "company,title\nAcme,Dev\n"))
+        ->call('loadUpload')->assertHasNoErrors()->assertSet('headers', ['company', 'title']);
+    expect(Opportunity::query()->count())->toBe(0)->and(AiRequest::query()->count())->toBe(0);
 });

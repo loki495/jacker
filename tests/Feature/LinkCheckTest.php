@@ -155,8 +155,9 @@ it('records an unexpected failure and rethrows only in debug mode', function ():
 it('drives link checks from the log page and the detail page', function (): void {
     Bus::fake();
     $job = Opportunity::factory()->create(['application_url' => 'https://jobs.example/ui']);
-    Livewire::test('pages::link-checks')->call('addUrls')->assertHasErrors(['urls' => 'required'])
-        ->set('urls', "https://jobs.example/one\njunk")->call('addUrls')->assertHasNoErrors()->assertSee('Skipped')->call('checkAll')->assertSee($job->application_url);
+    Livewire::test('pages::import')->call('addUrls')->assertHasErrors(['urls' => 'required'])
+        ->set('urls', "https://jobs.example/one\njunk")->call('addUrls')->assertHasNoErrors()->assertSee('Skipped');
+    Livewire::test('pages::link-checks')->call('checkAll')->assertSee($job->application_url);
     expect(LinkCheck::query()->count())->toBe(2);
     Livewire::test('pages::detail', ['opportunity' => $job])->call('checkLink');
     expect(LinkCheck::query()->where('opportunity_id', $job->id)->count())->toBe(1);

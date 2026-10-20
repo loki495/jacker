@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Actions\CsvImport;
 use App\Actions\CsvPreview;
+use App\Actions\ImportSavedPage;
+use App\Actions\QueueLinkChecks;
+use App\Models\Opportunity;
 use App\Support\CsvMapping;
 use App\Support\CsvReader;
 use Illuminate\Support\Facades\Storage;
@@ -19,7 +22,19 @@ new #[Layout('layouts.app')] class extends Component
 {
     use WithFileUploads;
 
+    private const SAVED_EXTENSIONS = ['html', 'htm', 'mhtml', 'mht', 'txt'];
+
     public $upload;
+
+    public string $urls = '';
+
+    public string $message = '';
+
+    public string $savedText = '';
+
+    public string $savedUrl = '';
+
+    public string $savedJob = '';
 
     #[Locked]
     public string $token = '';
@@ -48,6 +63,11 @@ new #[Layout('layouts.app')] class extends Component
 
     public function loadUpload(): void
     {
+        if ($this->uploadIsSavedPage()) {
+            $this->importSaved(app(ImportSavedPage::class));
+
+            return;
+        }
         $this->validate(['upload' => ['required', 'file', 'max:'.(int) ceil((int) config('csv.max_bytes', 5 * 1024 * 1024) / 1024)]]);
         $csv = app(CsvReader::class)->read($this->upload->getRealPath());
         $this->discardUpload();
@@ -62,6 +82,42 @@ new #[Layout('layouts.app')] class extends Component
         $this->result = '';
         $this->reset('upload');
         $this->resetValidation();
+    }
+
+    public function importSaved(ImportSavedPage $import): void
+    {
+        $this->validate([
+            'savedUrl' => ['nullable', 'url:http,https', 'max:2048'],
+            'savedJob' => ['nullable', 'exists:opportunities,id'],
+        ]);
+        $file = $this->uploadIsSavedPage() ? $this->upload : null;
+        if ($file !== null) {
+            $this->validate(['upload' => ['file', 'max:'.(int) ceil((int) config('linkcheck.max_bytes') / 1024)]]);
+        }
+        $content = $file?->get() ?? $this->savedText;
+        if (trim((string) $content) === '') {
+            $this->addError('savedText', __('jobs.saved_need_input'));
+
+            return;
+        }
+        $check = $import->handle((string) $content, $this->savedUrl ?: null, $this->savedJob === '' ? null : Opportunity::query()->find((int) $this->savedJob));
+        $this->message = $check->message ?? __('jobs.link_created');
+        $this->reset('upload', 'savedText', 'savedUrl', 'savedJob');
+        $this->resetValidation();
+    }
+
+    public function addUrls(QueueLinkChecks $queue): void
+    {
+        $this->validate(['urls' => ['required', 'string', 'max:20000']], ['urls.required' => __('jobs.urls_required')]);
+        $result = $queue->forUrls(preg_split('/\R/', $this->urls) ?: []);
+        $this->message = __('jobs.link_queued_count', ['count' => $result['queued']]).($result['rejected'] ? ' '.__('jobs.urls_rejected', ['urls' => implode(', ', $result['rejected'])]) : '');
+        $this->urls = '';
+    }
+
+    #[Computed]
+    public function jobs()
+    {
+        return Opportunity::query()->whereNull('archived_at')->orderBy('company')->orderBy('title')->get(['id', 'company', 'title']);
     }
 
     public function updatedMapping(): void
@@ -113,6 +169,12 @@ new #[Layout('layouts.app')] class extends Component
         unset($this->previewData);
     }
 
+    private function uploadIsSavedPage(): bool
+    {
+        return $this->upload !== null
+            && in_array(strtolower(pathinfo($this->upload->getClientOriginalName(), PATHINFO_EXTENSION)), self::SAVED_EXTENSIONS, true);
+    }
+
     private function canonicalPath(): string
     {
         $path = session()->get('csv-import.'.$this->token);
@@ -138,15 +200,47 @@ new #[Layout('layouts.app')] class extends Component
         <flux:heading size="xl" level="1">{{ __('csv.heading') }}</flux:heading>
         <flux:text class="mt-2">{{ __('csv.intro') }}</flux:text>
     </div>
+    @if ($message)
+        <p role="status" class="rounded-xl bg-teal-50 p-4 text-teal-900">{{ $message }} <a href="/link-checks" class="underline" wire:navigate>{{ __('jobs.link_checks') }}</a></p>
+    @endif
     @if ($result)
         <p role="status" class="rounded-xl bg-teal-50 p-4 text-teal-900">{{ $result }} <a href="/" class="underline">{{ __('csv.open_workspace') }}</a></p>
     @endif
     <form wire:submit="loadUpload" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
-        <flux:input type="file" wire:model="upload" :label="__('csv.file')" accept=".csv,.tsv,.txt,text/csv" />
+        <flux:input type="file" wire:model="upload" :label="__('csv.file')" accept=".csv,.tsv,.html,.htm,.mhtml,.mht,.txt,text/csv" />
+        <flux:text>{{ __('csv.file_hint') }}</flux:text>
         <flux:text>{{ __('csv.limits', ['mb' => number_format((int) config('csv.max_bytes', 5242880) / 1048576, 1), 'rows' => config('csv.max_rows', 1000)]) }}</flux:text>
-        <flux:button type="submit" variant="primary" wire:loading.attr="disabled">{{ __('csv.read_columns') }}</flux:button>
+        <flux:button type="submit" variant="primary" wire:loading.attr="disabled">{{ __('csv.read_file') }}</flux:button>
     </form>
     @error('upload') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+
+    <section class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+        <flux:heading size="lg" level="2">{{ __('jobs.add_from_urls') }}</flux:heading>
+        <flux:text>{{ __('jobs.add_from_urls_hint') }}</flux:text>
+        <form wire:submit="addUrls" class="space-y-4">
+            <flux:textarea wire:model="urls" rows="4" :placeholder="__('jobs.urls_placeholder')" :aria-label="__('jobs.add_from_urls')" />
+            @error('urls') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+            <flux:button type="submit" variant="primary">{{ __('jobs.add_from_urls_submit') }}</flux:button>
+        </form>
+    </section>
+
+    <section class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+        <flux:heading size="lg" level="2">{{ __('jobs.saved_title') }}</flux:heading>
+        <flux:text>{{ __('jobs.saved_hint') }}</flux:text>
+        <form wire:submit="importSaved" class="space-y-4">
+            <flux:textarea wire:model="savedText" rows="5" :placeholder="__('jobs.saved_text')" :aria-label="__('jobs.saved_text')" />
+            @error('savedText') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div><flux:input wire:model="savedUrl" type="url" :label="__('jobs.saved_url')" />@error('savedUrl') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror</div>
+                <flux:select wire:model="savedJob" :label="__('jobs.saved_job')">
+                    <flux:select.option value="">{{ __('jobs.saved_job_new') }}</flux:select.option>
+                    @foreach ($this->jobs as $job)<flux:select.option value="{{ $job->id }}">{{ $job->company }} — {{ $job->title }}</flux:select.option>@endforeach
+                </flux:select>
+            </div>
+            @error('savedJob') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+            <flux:button type="submit" variant="primary">{{ __('jobs.saved_submit') }}</flux:button>
+        </form>
+    </section>
 
     @if ($headers)
         <form wire:submit="preview" class="space-y-4">
