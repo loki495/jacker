@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Host side of the AI and page-render request queues: takes one queued request from the app container, runs it in a
-# no-tools Claude CLI call (`claude -p --tools ""`) and hands the reply back. Run on demand;
-# `--loop` keeps polling. Needs docker, jq and `claude` on the host; page renders also need node with
+# one-off tool-less Sessioneer session (`--no-tools --wait` prints the final reply) and hands the reply back. Run on demand;
+# `--loop` keeps polling. Needs docker, jq and `sessioneer` with `--wait` and `--no-tools` on the host; page renders also need node with
 # `npm install` run in tools/render and a Chromium (RENDER_CHROME, default: newest in ~/.cache/ms-playwright).
 set -euo pipefail
 
@@ -29,23 +29,19 @@ render_one() {
 
 work_one() {
     render_one && return 0
-    local job id agent model reply errfile
+    local job id agent model reply errfile name
     job="$(artisan ai:claim)"
     [ -n "$job" ] || return 1
     id="$(jq -r .id <<<"$job")"; agent="$(jq -r .agent <<<"$job")"; model="$(jq -r .model <<<"$job")"
     errfile="$(mktemp)"
-    # The model reads untrusted page text, so it runs through the Claude CLI with every tool disabled (no Bash,
-    # file or web tools, no MCP servers, no skills), in an empty directory, with no session kept.
-    if [ "$agent" != "claude" ]; then
-        artisan ai:complete "$id" --fail="only the claude agent runs without tools; AI_AGENT=$agent is not supported"
-        rm -f "$errfile"; return 0
-    fi
-    if reply="$(jq -r .prompt <<<"$job" | (cd "$WORKDIR" && timeout "$TIMEOUT" claude -p --model "$model" --tools "" --strict-mcp-config --disable-slash-commands --no-session-persistence 2>"$errfile"))" && [ -n "$reply" ]; then
+    # The model reads untrusted page text, so the session is started with --no-tools (no built-in or MCP tools).
+    if reply="$(jq -r .prompt <<<"$job" | timeout "$((TIMEOUT + 30))" sessioneer --wait --no-tools --timeout "$TIMEOUT" --agent "$agent" --model "$model" --workdir "$WORKDIR" - 2>"$errfile")" && [ -n "$reply" ]; then
         artisan ai:complete "$id" <<<"$reply"
     else
-        artisan ai:complete "$id" --fail="the model returned no usable reply: $(tail -n1 "$errfile" | cut -c1-200)"
+        artisan ai:complete "$id" --fail="sessioneer returned no usable reply: $(tail -n1 "$errfile" | cut -c1-200)"
     fi
-    rm -f "$errfile"
+    name="$(head -n1 "$errfile")"; rm -f "$errfile"
+    [ -z "$name" ] || sessioneer --kill "$name" >/dev/null 2>&1 || true
 }
 
 if [ "${1:-}" = "--loop" ]; then
