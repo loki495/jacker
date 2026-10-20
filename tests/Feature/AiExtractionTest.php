@@ -150,3 +150,9 @@ it('shows replaced values and the raw reply as bullet items, and falls back to p
     Livewire::test('pages::link-checks')->assertSeeHtml('<pre class="link-cell">Sorry, no &lt;b&gt;JSON&lt;/b&gt;</pre>');
     expect($bad->outputFields())->toBeNull();
 });
+
+it('renders the log when the model replies with keys that are translation groups or unknown', function (): void {
+    AiRequest::query()->create(['link_check_id' => noDataCheck()->id, 'kind' => 'extract', 'status' => LinkCheckStatus::Failed, 'message' => 'x',
+        'output' => json_encode(['OpportunityStatus' => 'saved', 'nonsense' => 'Kept as typed', 'title' => 'Dev'])]);
+    Livewire::test('pages::link-checks')->assertOk()->assertSee('OpportunityStatus')->assertSee('nonsense')->assertSee('Kept as typed')->assertSee('Title');
+});
