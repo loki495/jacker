@@ -20,6 +20,8 @@
                 <a href="/opportunities/create" wire:navigate class="nav-link"><span>＋</span>{{ __('jobs.add_job') }}</a>
                 <a href="/import" wire:navigate class="nav-link"><span>↥</span>{{ __('jobs.import') }}</a>
                 <a href="/link-checks" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('link-checks')])><span>⟳</span>{{ __('jobs.nav_link_checks') }}</a>
+                <a href="/job-finder" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('job-finder')])><span>⌕</span>{{ __('scrapers.nav') }}</a>
+                <a href="/scoring" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('scoring')])><span>★</span>{{ __('jobs.nav_scoring') }}</a>
                 <a href="/export" class="nav-link"><span>↧</span>{{ __('jobs.export') }}</a>
             </nav>
             <div class="sidebar-note"><span class="status-dot"></span>{{ __('jobs.private_workspace') }}<p>{{ __('jobs.manual_control') }}</p></div>

@@ -11,5 +11,7 @@ Route::livewire('/opportunities/{opportunity}/edit', 'pages::editor')->name('opp
 Route::livewire('/opportunities/{opportunity}', 'pages::detail')->name('opportunities.show');
 
 Route::livewire('/link-checks', 'pages::link-checks')->name('link-checks');
+Route::livewire('/job-finder', 'pages::job-finder')->name('job-finder');
+Route::livewire('/scoring', 'pages::scoring')->name('scoring');
 Route::livewire('/import', 'pages::import')->name('import');
 Route::get('/export', CsvExportController::class)->name('export');

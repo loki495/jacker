@@ -27,6 +27,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $link_status
  * @property Carbon|null $link_checked_at
  * @property string|null $application_url
+ * @property WorkArrangement $work_arrangement
+ * @property string|null $skill_match_notes
  * @property OpportunityStatus $status
  * @property bool $has_applied
  * @property Carbon|null $applied_at

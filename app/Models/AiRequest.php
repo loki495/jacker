@@ -11,7 +11,9 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
- * @property int $link_check_id
+ * @property int|null $link_check_id
+ * @property int|null $opportunity_id
+ * @property string|null $mode
  * @property string $kind
  * @property LinkCheckStatus $status
  * @property string|null $agent
@@ -27,6 +29,8 @@ class AiRequest extends Model
     public const KIND_EXTRACT = 'extract';
 
     public const KIND_RENDER = 'render';
+
+    public const KIND_SCORE = 'score';
 
     #[\Override]
     protected $guarded = ['id', 'created_at', 'updated_at'];
@@ -46,6 +50,12 @@ class AiRequest extends Model
         $json = $start === false || $end === false ? null : json_decode(substr($output, $start, $end - $start + 1), true);
 
         return is_array($json) && $json !== [] ? $json : null;
+    }
+
+    /** @return BelongsTo<Opportunity, $this> */
+    public function opportunity(): BelongsTo
+    {
+        return $this->belongsTo(Opportunity::class);
     }
 
     /** @return BelongsTo<LinkCheck, $this> */

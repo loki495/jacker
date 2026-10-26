@@ -9,6 +9,8 @@ CONTAINER="${JACKER_CONTAINER:-jacker-app}"
 TIMEOUT="${AI_BRIDGE_TIMEOUT:-180}"
 RENDER_TIMEOUT="${RENDER_TIMEOUT_MS:-30000}"; RENDER_TIMEOUT=$((RENDER_TIMEOUT / 1000))
 RENDER_SCRIPT="$(dirname "$(readlink -f "$0")")/../tools/render/render.mjs"
+# OpenCode has no --no-tools: shell, edits and web are denied and reads stay inside the empty work directory. (Denying "read" or setting "tools" makes this version hang.)
+OPENCODE_NO_TOOLS='{"permission":{"bash":"deny","edit":"deny","webfetch":"deny","external_directory":"deny"}}'
 WORKDIR="$(mktemp -d)"
 trap 'rmdir "$WORKDIR" 2>/dev/null || true' EXIT
 artisan() { docker exec -i --user www-data "$CONTAINER" php artisan "$@"; }
@@ -27,8 +29,7 @@ render_one() {
     rm -f "$errfile"
 }
 
-work_one() {
-    render_one && return 0
+extract_one() {
     local job id agent model reply errfile name
     job="$(artisan ai:claim)"
     [ -n "$job" ] || return 1
@@ -47,6 +48,47 @@ work_one() {
     fi
     name="$(head -n1 "$errfile")"; rm -f "$errfile"
     [ -z "$name" ] || sessioneer --kill "$name" >/dev/null 2>&1 || true
+}
+
+# Runs one prompt (stdin) through one agent with no way to act on the listing text; prints the reply. Sessioneer only launches claude,
+# so codex and opencode run through their own CLIs (read-only sandbox / empty directory).
+run_agent() {
+    local agent="$1" model="$2" out
+    case "$agent" in
+        claude)
+            out="$(mktemp)"
+            timeout "$((TIMEOUT + 30))" sessioneer --wait --no-tools --timeout "$TIMEOUT" --agent claude --model "$model" --workdir "$WORKDIR" - 2>"$out" || { rm -f "$out"; return 1; }
+            [ -z "$(head -n1 "$out")" ] || sessioneer --kill "$(head -n1 "$out")" >/dev/null 2>&1 || true
+            rm -f "$out" ;;
+        codex)
+            out="$(mktemp)"
+            timeout "$((TIMEOUT + 30))" codex exec --sandbox read-only --skip-git-repo-check --ephemeral -C "$WORKDIR" -m "$model" -o "$out" - >/dev/null \
+                && cat "$out"
+            rm -f "$out" ;;
+        opencode) OPENCODE_CONFIG_CONTENT="$OPENCODE_NO_TOOLS" timeout "$((TIMEOUT + 30))" opencode run --pure --dir "$WORKDIR" -m "$model" "$(cat)" ;;
+        *) return 1 ;;
+    esac
+}
+
+# Scoring tries each agent of the chain from the database in order until one returns a JSON object (no quota or an error falls through).
+score_one() {
+    local job id prompt agent model reply n i
+    job="$(artisan score:claim)"
+    [ -n "$job" ] || return 1
+    id="$(jq -r .id <<<"$job")"; prompt="$(jq -r .prompt <<<"$job")"; n="$(jq '.chain | length' <<<"$job")"
+    for ((i = 0; i < n; i++)); do
+        agent="$(jq -r ".chain[$i].agent" <<<"$job")"; model="$(jq -r ".chain[$i].model" <<<"$job")"
+        [[ "$agent" =~ ^(claude|codex|opencode)$ ]] && [[ "$model" =~ ^[A-Za-z0-9][A-Za-z0-9._:/-]*$ ]] || continue
+        if reply="$(run_agent "$agent" "$model" <<<"$prompt" 2>/dev/null)" && [[ "$reply" == *"{"* ]]; then
+            artisan score:complete "$id" --agent="$agent" --model="$model" <<<"$reply"
+            return 0
+        fi
+    done
+    artisan score:complete "$id" --fail="no agent in the chain returned a usable reply"
+}
+
+work_one() {
+    render_one || extract_one || score_one
 }
 
 if [ "${1:-}" = "--loop" ]; then
