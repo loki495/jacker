@@ -77,7 +77,7 @@ it('queues the render before the AI pass from one button and holds the extractio
     expect(app(ClaimAiRequest::class)->handle())->toBeNull();
     app(CompletePageRender::class)->handle($render->refresh()->load('linkCheck'), 'Rendered posting text');
     $claimed = app(ClaimAiRequest::class)->handle();
-    expect($claimed['prompt'])->toContain("=====PAGE=====\nRendered posting text\n=====END PAGE=====");
+    expect(preg_match('/<<<PAGE-([0-9a-f]{24})>>>\nRendered posting text\n<<<END-PAGE-\1>>>/', $claimed['prompt']))->toBe(1);
     $page->call('$refresh')->assertSee(__('jobs.render_state_done', ['message' => $render->refresh()->message]));
 });
 
@@ -87,7 +87,7 @@ it('still runs the AI pass on the old text when the render fails, and skips the 
     $render = AiRequest::query()->where('kind', 'render')->firstOrFail();
     $render->update(['status' => LinkCheckStatus::Running]);
     app(CompletePageRender::class)->fail($render, 'timed out');
-    expect(app(ClaimAiRequest::class)->handle()['prompt'])->toContain("=====PAGE=====\nJobs\n=====END PAGE=====");
+    expect(preg_match('/<<<PAGE-([0-9a-f]{24})>>>\nJobs\n<<<END-PAGE-\1>>>/', app(ClaimAiRequest::class)->handle()['prompt']))->toBe(1);
 
     app(RequestAiExtraction::class)->handle(checkFor('', 'saved'));
     expect(AiRequest::query()->where('kind', 'render')->count())->toBe(1);
