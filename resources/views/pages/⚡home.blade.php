@@ -75,6 +75,8 @@ new #[Layout('layouts.app')] class extends Component
             'skill_match' => $query->orderByRaw('COALESCE(skill_match, 0) DESC'),
             'desirability' => $query->orderByRaw('COALESCE(desirability, 0) DESC'),
             'newest' => $query->latest('created_at'),
+            'pay' => $query->orderByRaw(App\Support\PaySort::orderBy()),
+            'location' => $query->orderByRaw(App\Support\LocationSort::usFirst()),
             'follow_up' => $query->orderByRaw('follow_up_at IS NULL')->orderBy('follow_up_at'),
             'deadline' => $query->orderByRaw('deadline IS NULL')->orderBy('deadline'),
             default => $query->bestFirst(),
@@ -126,7 +128,7 @@ new #[Layout('layouts.app')] class extends Component
             <div class="search-control"><flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('jobs.search')" :aria-label="__('jobs.search')" /></div>
             <flux:select wire:model.live="status" :aria-label="__('jobs.status')"><option value="open_unapplied">{{ __('jobs.status_open_unapplied') }}</option><option value="open">{{ __('jobs.status_open') }}</option><option value="">{{ __('jobs.all_statuses') }}</option>@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select>
             <flux:select wire:model.live="applied" :aria-label="__('jobs.application_filter')"><option value="">{{ __('jobs.all_applications') }}</option><option value="no">{{ __('jobs.not_applied') }}</option><option value="yes">{{ __('jobs.has_applied') }}</option></flux:select>
-            <flux:select wire:model.live="sort" :aria-label="__('jobs.sort')">@foreach(['rank','skill_match','desirability','newest','company','follow_up','deadline'] as $option)<option value="{{ $option }}">{{ __('jobs.sort_'.$option) }}</option>@endforeach</flux:select>
+            <flux:select wire:model.live="sort" :aria-label="__('jobs.sort')">@foreach(['rank','skill_match','desirability','newest','pay','location','company','follow_up','deadline'] as $option)<option value="{{ $option }}">{{ __('jobs.sort_'.$option) }}</option>@endforeach</flux:select>
         </div>
         <div class="secondary-filters"><flux:checkbox wire:model.live="due" :label="__('jobs.due_only')" /><flux:select wire:model.live="archive" :aria-label="__('jobs.archive_filter')"><option value="active">{{ __('jobs.active_records') }}</option><option value="archived">{{ __('jobs.archived_records') }}</option><option value="all">{{ __('jobs.all_records') }}</option></flux:select></div>
         @if($view === 'board')
