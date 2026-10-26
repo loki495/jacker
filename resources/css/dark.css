@@ -73,7 +73,7 @@ html.dark .success-message{background:#09421e;color:#75ce9d}
 html.dark .extra-field-row{background:#202020}
 html.dark .csv-preview td::before{color:#90a7b0}
 html.dark .detail-list{color:#9bbbad}
-html.dark .detail-list li::marker{color:#75a48f}
+html.dark .detail-list li{border-bottom-color:#36422a}html.dark .detail-list li::before{background:#75a48f}
 html.dark .link-running{background:#462e04;color:#d4a752}
 html.dark .link-done{background:#08441a;color:#71d3a1}
 html.dark .link-failed{background:#321414;color:#aa6e73}
