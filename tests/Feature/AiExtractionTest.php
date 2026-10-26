@@ -62,6 +62,17 @@ it('creates a listing from valid model output, dropping unknown keys and invalid
         ->and($request->refresh()->status)->toBe(LinkCheckStatus::Done)->and($request->linkCheck->opportunity_id)->toBe($job->id);
 });
 
+it('asks for dollar conversion and keeps the original pay in the salary notes', function (): void {
+    $request = app(RequestAiExtraction::class)->handle(noDataCheck());
+    $prompt = app(ClaimAiRequest::class)->handle()['prompt'];
+    expect($prompt)->toContain('other than US dollars')->toContain('salary_notes')->toContain('set currency to USD');
+
+    $request->update(['status' => LinkCheckStatus::Running]);
+    app(CompleteAiRequest::class)->handle($request->load('linkCheck'), json_encode(['company' => 'Acme', 'salary_min' => 5400, 'salary_max' => 6264, 'currency' => 'USD', 'pay_period' => 'month', 'salary_notes' => 'Posted as EUR 5,000-5,800 per month; converted at about 1 EUR = 1.08 USD']));
+    $job = Opportunity::query()->firstOrFail();
+    expect($job->currency)->toBe('USD')->and($job->salary_notes)->toContain('EUR 5,000-5,800')->and((float) $job->salary_min)->toBe(5400.0);
+});
+
 it('fills only empty fields of an existing job', function (): void {
     $job = Opportunity::factory()->create(['title' => 'Keep me', 'location' => null]);
     $request = app(RequestAiExtraction::class)->handle(noDataCheck($job));

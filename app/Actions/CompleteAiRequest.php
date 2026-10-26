@@ -16,7 +16,7 @@ final readonly class CompleteAiRequest
     /** Long text fields an explicit AI pass may replace; the earlier values are kept on the request. */
     private const array REPLACEABLE = ['benefits', 'responsibilities', 'requirements', 'hours'];
 
-    private const array TEXT = ['title', 'company', 'company_url', 'location', 'benefits', 'responsibilities', 'requirements', 'hours'];
+    private const array TEXT = ['title', 'company', 'company_url', 'location', 'benefits', 'responsibilities', 'requirements', 'hours', 'salary_notes'];
 
     public function __construct(private RunLinkCheck $applier) {}
 
