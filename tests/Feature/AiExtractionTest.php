@@ -102,6 +102,15 @@ it('claims and completes through the artisan commands', function (): void {
     $this->artisan('ai:complete', ['id' => $request->id, '--fail' => 'again'])->assertFailed();
 });
 
+it('hands the bridge the configured agent chain and records which agent answered or failed', function (): void {
+    config(['ai.chain' => [['agent' => 'claude', 'model' => 'haiku'], ['agent' => 'codex', 'model' => 'gpt-6-luna']]]);
+    $request = app(RequestAiExtraction::class)->handle(noDataCheck());
+
+    $this->artisan('ai:claim')->expectsOutputToContain('"chain":[{"agent":"claude","model":"haiku"},{"agent":"codex","model":"gpt-6-luna"}]')->assertSuccessful();
+    $this->artisan('ai:complete', ['id' => $request->id, '--agent' => 'codex', '--model' => 'gpt-6-luna', '--fail' => 'no usable reply'])->assertSuccessful();
+    expect($request->refresh())->agent->toBe('codex')->model->toBe('gpt-6-luna')->status->toBe(LinkCheckStatus::Failed);
+});
+
 it('shows the AI request state in the log from pending to its result', function (): void {
     $check = noDataCheck();
     $page = Livewire::test('pages::link-checks')->call('readWithAi', $check->id)->assertSee(__('jobs.ai_state_queued'))->assertDontSee(__('jobs.ai_extract'));

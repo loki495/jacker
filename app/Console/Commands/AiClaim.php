@@ -13,7 +13,7 @@ final class AiClaim extends Command
     protected $signature = 'ai:claim';
 
     #[\Override]
-    protected $description = 'Print the oldest queued AI request as JSON (id, agent, model, prompt) and mark it running; prints nothing when none is queued.';
+    protected $description = 'Print the oldest queued AI request as JSON (id, agent chain, prompt) and mark it running; prints nothing when none is queued.';
 
     public function handle(ClaimAiRequest $claim): int
     {

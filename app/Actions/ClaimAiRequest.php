@@ -14,7 +14,7 @@ final class ClaimAiRequest
         .'work_arrangement (remote|on_site|hybrid), employment_type (full_time|part_time|contract|freelance|temporary|internship), '
         .'salary_min, salary_max (plain numbers), currency (3-letter code), pay_period (hour|day|week|month|year), salary_notes';
 
-    /** @return array{id: int, agent: string, model: string, prompt: string}|null */
+    /** @return array{id: int, chain: list<array{agent: string, model: string}>, prompt: string}|null */
     public function handle(): ?array
     {
         $request = DB::transaction(function (): ?AiRequest {
@@ -28,7 +28,7 @@ final class ClaimAiRequest
             return null;
         }
 
-        return ['id' => $request->id, 'agent' => (string) $request->agent, 'model' => (string) $request->model, 'prompt' => $this->prompt((string) $request->linkCheck->page_text)];
+        return ['id' => $request->id, 'chain' => config('ai.chain'), 'prompt' => $this->prompt((string) $request->linkCheck->page_text)];
     }
 
     private function prompt(string $text): string
