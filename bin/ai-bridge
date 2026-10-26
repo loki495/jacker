@@ -9,10 +9,10 @@ CONTAINER="${JACKER_CONTAINER:-jacker-app}"
 TIMEOUT="${AI_BRIDGE_TIMEOUT:-180}"
 RENDER_TIMEOUT="${RENDER_TIMEOUT_MS:-30000}"; RENDER_TIMEOUT=$((RENDER_TIMEOUT / 1000))
 RENDER_SCRIPT="$(dirname "$(readlink -f "$0")")/../tools/render/render.mjs"
-# OpenCode has no --no-tools: shell, edits and web are denied and reads stay inside the empty work directory. (Denying "read" or setting "tools" makes this version hang.)
-OPENCODE_NO_TOOLS='{"permission":{"bash":"deny","edit":"deny","webfetch":"deny","external_directory":"deny"}}'
-WORKDIR="$(mktemp -d)"
-trap 'rmdir "$WORKDIR" 2>/dev/null || true' EXIT
+# OpenCode has no --no-tools: shell, edits, web, subagents and skills are denied and reads stay inside the empty work directory; its config dir is empty so the global MCP servers are not loaded. (Denying "read" or setting "tools" makes this version hang.)
+OPENCODE_NO_TOOLS='{"permission":{"bash":"deny","edit":"deny","webfetch":"deny","websearch":"deny","task":"deny","skill":"deny","external_directory":"deny"}}'
+WORKDIR="$(mktemp -d)"; mkdir "$WORKDIR/.config"
+trap 'rm -rf "$WORKDIR"' EXIT
 artisan() { docker exec -i --user www-data "$CONTAINER" php artisan "$@"; }
 
 render_one() {
@@ -62,10 +62,10 @@ run_agent() {
             rm -f "$out" ;;
         codex)
             out="$(mktemp)"
-            timeout "$((TIMEOUT + 30))" codex exec --sandbox read-only --skip-git-repo-check --ephemeral -C "$WORKDIR" -m "$model" -o "$out" - >/dev/null \
+            timeout "$((TIMEOUT + 30))" codex exec --ignore-user-config --ignore-rules --sandbox read-only --skip-git-repo-check --ephemeral -C "$WORKDIR" -m "$model" -o "$out" - >/dev/null \
                 && cat "$out"
             rm -f "$out" ;;
-        opencode) OPENCODE_CONFIG_CONTENT="$OPENCODE_NO_TOOLS" timeout "$((TIMEOUT + 30))" opencode run --pure --dir "$WORKDIR" -m "$model" "$(cat)" ;;
+        opencode) XDG_CONFIG_HOME="$WORKDIR/.config" OPENCODE_CONFIG_CONTENT="$OPENCODE_NO_TOOLS" timeout "$((TIMEOUT + 30))" opencode run --pure --dir "$WORKDIR" -m "$model" "$(cat)" ;;
         *) return 1 ;;
     esac
 }
