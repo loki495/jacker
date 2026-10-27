@@ -27,5 +27,4 @@ return [
     'not_answered' => '— not answered —',
     'manage' => 'Manage questions',
     'unlisted_answer' => ':answer (no longer in the list)',
-    'ask_at' => 'Ask at',
 ];
