@@ -15,6 +15,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -34,6 +35,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $savedUrl = '';
 
+    #[Url(as: 'job')]
     public string $savedJob = '';
 
     #[Locked]
@@ -104,6 +106,12 @@ new #[Layout('layouts.app')] class extends Component
         $this->message = $check->message ?? __('jobs.link_created');
         $this->reset('upload', 'savedText', 'savedUrl', 'savedJob');
         $this->resetValidation();
+        $this->scrollToTop();
+    }
+
+    private function scrollToTop(): void
+    {
+        $this->js('window.scrollTo({top: 0, behavior: "smooth"})');
     }
 
     public function addUrls(QueueLinkChecks $queue): void
@@ -112,6 +120,14 @@ new #[Layout('layouts.app')] class extends Component
         $result = $queue->forUrls(preg_split('/\R/', $this->urls) ?: []);
         $this->message = __('jobs.link_queued_count', ['count' => $result['queued']]).($result['rejected'] ? ' '.__('jobs.urls_rejected', ['urls' => implode(', ', $result['rejected'])]) : '');
         $this->urls = '';
+        $this->scrollToTop();
+    }
+
+    public function mount(): void
+    {
+        if ($this->savedJob !== '' && ! $this->jobs->contains('id', (int) $this->savedJob)) {
+            $this->savedJob = '';
+        }
     }
 
     #[Computed]
@@ -163,6 +179,7 @@ new #[Layout('layouts.app')] class extends Component
         }
         $result = app(CsvImport::class)->handle($this->canonicalPath(), $this->mapping, $this->excluded, $this->includedCandidates);
         $this->result = __('csv.result', $result);
+        $this->scrollToTop();
         $this->discardUpload();
         $this->headers = $this->mapping = $this->excluded = $this->includedCandidates = [];
         $this->previewing = false;
@@ -201,10 +218,10 @@ new #[Layout('layouts.app')] class extends Component
         <flux:text class="mt-2">{{ __('csv.intro') }}</flux:text>
     </div>
     @if ($message)
-        <p role="status" class="rounded-xl bg-teal-50 p-4 text-teal-900">{{ $message }} <a href="/link-checks" class="underline" wire:navigate>{{ __('jobs.link_checks') }}</a></p>
+        <p role="status" class="success-message mb-8!">{{ $message }} <a href="/link-checks" class="underline" wire:navigate>{{ __('jobs.link_checks') }}</a></p>
     @endif
     @if ($result)
-        <p role="status" class="rounded-xl bg-teal-50 p-4 text-teal-900">{{ $result }} <a href="/" class="underline">{{ __('csv.open_workspace') }}</a></p>
+        <p role="status" class="success-message mb-8!">{{ $result }} <a href="/" class="underline">{{ __('csv.open_workspace') }}</a></p>
     @endif
     <form wire:submit="loadUpload" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
         <flux:input type="file" wire:model="upload" :label="__('csv.file')" accept=".csv,.tsv,.html,.htm,.mhtml,.mht,.txt,text/csv" />
@@ -224,7 +241,7 @@ new #[Layout('layouts.app')] class extends Component
         </form>
     </section>
 
-    <section class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+    <section id="saved" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
         <flux:heading size="lg" level="2">{{ __('jobs.saved_title') }}</flux:heading>
         <flux:text>{{ __('jobs.saved_hint') }}</flux:text>
         <form wire:submit="importSaved" class="space-y-4">

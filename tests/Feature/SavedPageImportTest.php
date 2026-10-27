@@ -72,3 +72,13 @@ it('routes a csv file to the csv flow and not the saved-page import', function (
         ->call('loadUpload')->assertHasNoErrors()->assertSet('headers', ['company', 'title']);
     expect(Opportunity::query()->count())->toBe(0)->and(AiRequest::query()->count())->toBe(0);
 });
+
+it('opens the import page with the job from the detail page link preselected', function (): void {
+    $job = Opportunity::factory()->create();
+    $archived = Opportunity::factory()->create(['archived_at' => now()]);
+    $this->get('/opportunities/'.$job->id)->assertOk()->assertSee('/import?job='.$job->id.'#saved', false);
+    $this->get('/opportunities/'.$archived->id)->assertOk()->assertDontSee('/import?job='.$archived->id, false);
+    Livewire::withQueryParams(['job' => $job->id])->test('pages::import')->assertSet('savedJob', (string) $job->id);
+    Livewire::withQueryParams(['job' => $archived->id])->test('pages::import')->assertSet('savedJob', '');
+    Livewire::withQueryParams(['job' => 'junk'])->test('pages::import')->assertSet('savedJob', '');
+});

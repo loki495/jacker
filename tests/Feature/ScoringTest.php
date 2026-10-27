@@ -77,3 +77,10 @@ it('queues from the scoring page buttons and clears only done requests from the 
     Livewire::test('pages::scoring')->assertSee(__('jobs.score_title'))->call('clearDone')->assertSee('1 finished requests cleared');
     expect(AiRequest::query()->count())->toBe(1);
 });
+
+it('queues a single listing from its page, whatever its status, and never twice', function (): void {
+    $job = scoreJob(['status' => 'interviewing', 'has_applied' => true, 'skill_match' => 4, 'desirability' => 4]);
+    Livewire::test('pages::detail', ['opportunity' => $job])->call('scoreWithAi')->assertSee(__('jobs.score_one_queued'))->assertSee(__('jobs.score_one_working'))
+        ->call('scoreWithAi')->assertSee(__('jobs.score_one_pending'));
+    expect(AiRequest::query()->where('opportunity_id', $job->id)->count())->toBe(1);
+});

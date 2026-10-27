@@ -128,3 +128,19 @@ it('hides closed jobs by default and offers open and all status filters', functi
     expect($component->instance()->opportunities->pluck('company')->all())->toBe(['Closed Co']);
     $component->set('status', 'bogus')->assertStatus(200)->assertSee('Closed Co');
 });
+
+it('filters the pipeline from the summary cards', function (): void {
+    Opportunity::factory()->create(['company' => 'Rejected Co', 'status' => 'rejected', 'has_applied' => true]);
+    Opportunity::factory()->create(['company' => 'Screening Co', 'status' => 'screening', 'has_applied' => true]);
+    Opportunity::factory()->create(['company' => 'Offer Co', 'status' => 'offer', 'has_applied' => true]);
+    Opportunity::factory()->create(['company' => 'Due Co', 'status' => 'applied', 'has_applied' => true, 'follow_up_at' => today()]);
+    Opportunity::factory()->create(['company' => 'Inbound Co', 'status' => 'contacted']);
+    Opportunity::factory()->create(['company' => 'Archived Offer Co', 'status' => 'offer', 'archived_at' => now()]);
+    Livewire::test('pages::home')->call('showMetric', 'in_progress')->assertSee('Screening Co')->assertDontSee('Inbound Co')->assertSee('Due Co')->assertDontSee('Offer Co')->assertDontSee('Rejected Co')
+        ->call('showMetric', 'offers')->assertSee('Offer Co')->assertDontSee('Archived Offer Co')->assertDontSee('Screening Co')
+        ->call('showMetric', 'follow_ups')->assertSee('Due Co')->assertDontSee('Screening Co')->assertSet('due', true)
+        ->call('showMetric', 'offers')->assertSet('due', false)
+        ->call('showMetric', 'screening')->assertSee('Screening Co')->assertSee('Inbound Co')->assertDontSee('Due Co')->assertSet('status', 'recruiter')
+        ->call('showMetric', 'total')->assertSet('status', '')->assertSet('due', false)->assertSee('Rejected Co')->assertSee('Offer Co')->assertDontSee('Archived Offer Co');
+    Livewire::test('pages::home')->call('showMetric', 'bogus')->assertStatus(422);
+});

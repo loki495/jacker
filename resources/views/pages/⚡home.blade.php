@@ -50,6 +50,21 @@ new #[Layout('layouts.app')] class extends Component
         app(ChangeOpportunityStatus::class)->handle(Opportunity::query()->findOrFail($id), OpportunityStatus::from($validated['status']));
     }
 
+    public function showMetric(string $key): void
+    {
+        abort_unless(in_array($key, ['total', 'screening', 'in_progress', 'offers', 'follow_ups'], true), 422);
+        $this->reset('search', 'applied', 'due');
+        $this->archive = 'active';
+        $this->status = match ($key) {
+            'in_progress' => 'in_progress',
+            'screening' => 'recruiter',
+            'offers' => OpportunityStatus::Offer->value,
+            default => '',
+        };
+        $this->due = $key === 'follow_ups';
+        $this->resetPage();
+    }
+
     private function filtered(): Builder
     {
         return Opportunity::query()
@@ -61,6 +76,8 @@ new #[Layout('layouts.app')] class extends Component
             })
             ->when(OpportunityStatus::tryFrom($this->status), fn ($q) => $q->where('status', $this->status))
             ->when(in_array($this->status, ['open', 'open_unapplied'], true), fn ($q) => $q->where('status', '!=', OpportunityStatus::Closed->value))
+            ->when($this->status === 'recruiter', fn ($q) => $q->whereIn('status', ['contacted', 'screening']))
+            ->when($this->status === 'in_progress', fn ($q) => $q->whereIn('status', ['applied', 'screening', 'interviewing']))
             ->when($this->status === 'open_unapplied', fn ($q) => $q->where('has_applied', false))
             ->when(in_array($this->applied, ['yes', 'no'], true), fn ($q) => $q->where('has_applied', $this->applied === 'yes'))
             ->when($this->due, fn ($q) => $q->whereDate('follow_up_at', '<=', today())->whereNotIn('status', ['rejected', 'withdrawn', 'closed']));
@@ -98,6 +115,7 @@ new #[Layout('layouts.app')] class extends Component
 
         return [
             'total' => (clone $active)->count(),
+            'screening' => (clone $active)->whereIn('status', ['contacted', 'screening'])->count(),
             'in_progress' => (clone $active)->whereIn('status', ['applied', 'screening', 'interviewing'])->count(),
             'offers' => (clone $active)->where('status', 'offer')->count(),
             'follow_ups' => (clone $active)->whereDate('follow_up_at', '<=', today())->whereNotIn('status', ['rejected', 'withdrawn', 'closed'])->count(),
@@ -110,7 +128,7 @@ new #[Layout('layouts.app')] class extends Component
     <div class="page-heading"><div><div class="eyebrow">{{ __('jobs.search_workspace') }}</div><h1>{{ __('jobs.next_move') }}</h1><p>{{ __('jobs.intro') }}</p></div><flux:button href="/opportunities/create" wire:navigate variant="primary" icon="plus">{{ __('jobs.add_job') }}</flux:button></div>
     <section class="metrics" aria-label="{{ __('jobs.summary') }}">
         @foreach($this->metrics as $key => $value)
-            <div class="metric"><span>{{ __('jobs.'.$key) }}</span><strong>{{ $value }}</strong><small>{{ __('jobs.metric_'.$key) }}</small></div>
+            <button type="button" class="metric" wire:key="metric-{{ $key }}" wire:click="showMetric('{{ $key }}')" x-on:click="$nextTick(() => document.querySelector('.pipeline')?.scrollIntoView({behavior: 'smooth'}))" aria-pressed="{{ match ($key) { 'follow_ups' => $due, 'offers' => ! $due && $status === 'offer', 'in_progress' => ! $due && $status === 'in_progress', 'screening' => ! $due && $status === 'recruiter', default => ! $due && $status === '' && $applied === '' && $search === '' && $archive === 'active' } ? 'true' : 'false' }}"><span>{{ __('jobs.'.$key) }}</span><strong>{{ $value }}</strong><small>{{ __('jobs.metric_'.$key) }}</small></button>
         @endforeach
     </section>
     <section class="next-section"><div class="section-heading"><div><h2>{{ __('jobs.apply_next') }} <span class="small-tag">{{ __('jobs.your_priorities') }}</span></h2><p>{{ __('jobs.apply_next_hint') }}</p></div></div>
@@ -126,7 +144,7 @@ new #[Layout('layouts.app')] class extends Component
         <div class="pipeline-header"><div><h2>{{ __('jobs.pipeline') }} <span class="count-badge">{{ $this->opportunities->total() }}</span></h2><p>{{ __('jobs.pipeline_hint') }}</p></div><div class="view-switch" aria-label="{{ __('jobs.view') }}"><button wire:click="$set('view', 'table')" @class(['active' => $view !== 'board'])>{{ __('jobs.table') }}</button><button wire:click="$set('view', 'board')" @class(['active' => $view === 'board'])>{{ __('jobs.board') }}</button></div></div>
         <div class="filters">
             <div class="search-control"><flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('jobs.search')" :aria-label="__('jobs.search')" /></div>
-            <flux:select wire:model.live="status" :aria-label="__('jobs.status')"><option value="open_unapplied">{{ __('jobs.status_open_unapplied') }}</option><option value="open">{{ __('jobs.status_open') }}</option><option value="">{{ __('jobs.all_statuses') }}</option>@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select>
+            <flux:select wire:model.live="status" :aria-label="__('jobs.status')"><option value="open_unapplied">{{ __('jobs.status_open_unapplied') }}</option><option value="open">{{ __('jobs.status_open') }}</option><option value="recruiter">{{ __('jobs.status_recruiter') }}</option><option value="in_progress">{{ __('jobs.status_in_progress') }}</option><option value="">{{ __('jobs.all_statuses') }}</option>@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select>
             <flux:select wire:model.live="applied" :aria-label="__('jobs.application_filter')"><option value="">{{ __('jobs.all_applications') }}</option><option value="no">{{ __('jobs.not_applied') }}</option><option value="yes">{{ __('jobs.has_applied') }}</option></flux:select>
             <flux:select wire:model.live="sort" :aria-label="__('jobs.sort')">@foreach(['rank','skill_match','desirability','newest','pay','location','company','follow_up','deadline'] as $option)<option value="{{ $option }}">{{ __('jobs.sort_'.$option) }}</option>@endforeach</flux:select>
         </div>

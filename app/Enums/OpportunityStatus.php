@@ -8,6 +8,7 @@ enum OpportunityStatus: string
 {
     case Saved = 'saved';
     case Preparing = 'preparing';
+    case Contacted = 'contacted';
     case Applied = 'applied';
     case Screening = 'screening';
     case Interviewing = 'interviewing';

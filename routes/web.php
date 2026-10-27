@@ -9,6 +9,8 @@ Route::livewire('/', 'pages::home')->name('home');
 Route::livewire('/opportunities/create', 'pages::editor')->name('opportunities.create');
 Route::livewire('/opportunities/{opportunity}/edit', 'pages::editor')->name('opportunities.edit');
 Route::livewire('/opportunities/{opportunity}', 'pages::detail')->name('opportunities.show');
+Route::livewire('/opportunities/{opportunity}/questions', 'pages::answers')->name('opportunities.questions');
+Route::livewire('/questions', 'pages::questions')->name('questions');
 
 Route::livewire('/link-checks', 'pages::link-checks')->name('link-checks');
 Route::livewire('/job-finder', 'pages::job-finder')->name('job-finder');

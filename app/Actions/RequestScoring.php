@@ -30,4 +30,21 @@ final class RequestScoring
 
         return $jobs->count();
     }
+
+    /** Queues a re-score of one listing the user picked, whatever its status; false when a request is already pending. */
+    public function forOpportunity(Opportunity $opportunity): bool
+    {
+        if ($this->isPending($opportunity)) {
+            return false;
+        }
+        $first = config('scoring.chain.0');
+        AiRequest::query()->create(['opportunity_id' => $opportunity->id, 'kind' => AiRequest::KIND_SCORE, 'mode' => self::ALL, 'agent' => $first['agent'], 'model' => $first['model']]);
+
+        return true;
+    }
+
+    public function isPending(Opportunity $opportunity): bool
+    {
+        return AiRequest::query()->where('kind', AiRequest::KIND_SCORE)->where('opportunity_id', $opportunity->id)->whereIn('status', [LinkCheckStatus::Queued, LinkCheckStatus::Running])->exists();
+    }
 }
