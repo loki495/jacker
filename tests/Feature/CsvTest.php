@@ -281,3 +281,15 @@ it('handles an expired canonical upload during commit and render', function (): 
     $component->call('importReviewed')->assertHasErrors('upload')->assertSee('This upload has expired.');
     expect(Opportunity::query()->count())->toBe(0);
 });
+
+it('normalizes loose work arrangement and employment type values', function () {
+    $mapping = app(CsvMapping::class);
+    $data = fn (string $field, string $value) => $mapping->data([$field], [$value], [$field])[$field];
+
+    expect($data('work_arrangement', 'onsite'))->toBe('on_site')
+        ->and($data('work_arrangement', 'On-site'))->toBe('on_site')
+        ->and($data('work_arrangement', 'remote_first'))->toBe('remote')
+        ->and($data('work_arrangement', 'hybrid_after_training'))->toBe('hybrid')
+        ->and($data('employment_type', 'full_time_or_unclear'))->toBe('full_time')
+        ->and($data('employment_type', 'unclear'))->toBe('unspecified');
+});

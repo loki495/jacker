@@ -24,6 +24,8 @@ final class CsvMapping
     {
         $aliases = ['company name' => 'company', 'job title' => 'title', 'url' => 'application_url', 'application url' => 'application_url',
             'pay range' => 'salary_notes', 'pay' => 'salary_notes', 'type' => 'work_arrangement',
+            'position' => 'title', 'salary min usd' => 'salary_min', 'salary max usd' => 'salary_max',
+            'application deadline' => 'deadline', 'key requirements' => 'requirements', 'fit summary' => 'notes',
             'responsabilities' => 'responsibilities', 'applied yet' => 'has_applied', 'match' => 'skill_match'];
         $mapping = [];
         foreach ($headers as $index => $header) {
@@ -96,6 +98,22 @@ final class CsvMapping
                         'weekly', 'per_week' => 'week',
                         'monthly', 'per_month' => 'month',
                         'yearly', 'annually', 'annual', 'per_year' => 'year',
+                        default => $value,
+                    };
+                }
+                if ($field === 'work_arrangement') {
+                    $value = match (true) {
+                        str_starts_with($value, 'remote'), str_starts_with($value, 'telework') => 'remote',
+                        str_starts_with($value, 'hybrid') => 'hybrid',
+                        str_starts_with($value, 'onsite'), str_starts_with($value, 'on_site') => 'on_site',
+                        default => $value,
+                    };
+                }
+                if ($field === 'employment_type') {
+                    $value = match (true) {
+                        str_starts_with($value, 'full_time') => 'full_time',
+                        str_starts_with($value, 'part_time') => 'part_time',
+                        $value === 'unclear' => 'unspecified',
                         default => $value,
                     };
                 }

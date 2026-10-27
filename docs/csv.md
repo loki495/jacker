@@ -11,12 +11,12 @@ server's private local disk and is re-read and validated inside the import trans
 Company is required. Map a core field only once. Unmapped columns are preserved in
 `extra_fields`, including empty strings. Suggested aliases include company name, URL,
 application URL, job title, pay range, type (work arrangement), responsabilities,
-applied yet and match. Pay range
+applied yet and match, plus position (title), salary min usd / salary max usd, application deadline, key requirements and fit summary (notes). Pay range
 maps to salary notes: it does not invent numeric pay. Applied accepts yes/no, y/n,
 true/false or 1/0 and preserves an unknown application date. Dates require ISO
 `YYYY-MM-DD`; ambiguous dates are rejected. Enum labels accept case differences and
 spaces/hyphens (for example `Full time`, `on-site`, `Applied`); pay periods also accept
-labels such as hourly and yearly. Unsupported values produce row errors. Blank
+labels such as hourly and yearly. Work arrangement also accepts `onsite` and loose values by prefix (`remote_first` is remote, `hybrid_after_training` is hybrid, `onsite_or_...` is on-site, `telework...` is remote); employment type maps `full_time_*` and `part_time_*` to their base value and `unclear` to unspecified. The original wording is not kept. Unsupported values produce row errors. Blank
 currency, status, work arrangement, employment type, pay period and applied cells use
 the core defaults; other empty core fields remain null.
 

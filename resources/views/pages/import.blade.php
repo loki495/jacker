@@ -84,6 +84,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->result = '';
         $this->reset('upload');
         $this->resetValidation();
+        $this->js("document.getElementById('csv-mapping')?.scrollIntoView({behavior: 'smooth'})");
     }
 
     public function importSaved(ImportSavedPage $import): void
@@ -231,40 +232,12 @@ new #[Layout('layouts.app')] class extends Component
     </form>
     @error('upload') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
 
-    <section class="space-y-4 rounded-2xl border border-zinc-200 p-5">
-        <flux:heading size="lg" level="2">{{ __('jobs.add_from_urls') }}</flux:heading>
-        <flux:text>{{ __('jobs.add_from_urls_hint') }}</flux:text>
-        <form wire:submit="addUrls" class="space-y-4">
-            <flux:textarea wire:model="urls" rows="4" :placeholder="__('jobs.urls_placeholder')" :aria-label="__('jobs.add_from_urls')" />
-            @error('urls') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
-            <flux:button type="submit" variant="primary">{{ __('jobs.add_from_urls_submit') }}</flux:button>
-        </form>
-    </section>
-
-    <section id="saved" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
-        <flux:heading size="lg" level="2">{{ __('jobs.saved_title') }}</flux:heading>
-        <flux:text>{{ __('jobs.saved_hint') }}</flux:text>
-        <form wire:submit="importSaved" class="space-y-4">
-            <flux:textarea wire:model="savedText" rows="5" :placeholder="__('jobs.saved_text')" :aria-label="__('jobs.saved_text')" />
-            @error('savedText') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
-            <div class="grid gap-4 sm:grid-cols-2">
-                <div><flux:input wire:model="savedUrl" type="url" :label="__('jobs.saved_url')" />@error('savedUrl') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror</div>
-                <flux:select wire:model="savedJob" :label="__('jobs.saved_job')">
-                    <flux:select.option value="">{{ __('jobs.saved_job_new') }}</flux:select.option>
-                    @foreach ($this->jobs as $job)<flux:select.option value="{{ $job->id }}">{{ $job->company }} — {{ $job->title }}</flux:select.option>@endforeach
-                </flux:select>
-            </div>
-            @error('savedJob') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
-            <flux:button type="submit" variant="primary">{{ __('jobs.saved_submit') }}</flux:button>
-        </form>
-    </section>
-
     @if ($headers)
-        <form wire:submit="preview" class="space-y-4">
+        <form wire:submit="preview" id="csv-mapping" class="space-y-4">
             <flux:heading size="lg" level="2">{{ __('csv.match_columns') }}</flux:heading>
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($headers as $index => $header)
-                    <flux:select wire:model.live="mapping.{{ $index }}" label="{{ $header }}" wire:key="column-{{ $index }}">
+                    <flux:select wire:model.live="mapping.{{ $index }}" label="{{ ucfirst(str_replace('_', ' ', $header)) }}" wire:key="column-{{ $index }}">
                         <flux:select.option value="">{{ __('csv.keep_extra') }}</flux:select.option>
                         @foreach (CsvMapping::FIELDS as $field)
                             <flux:select.option value="{{ $field }}">{{ $field === 'archived_at' ? __('csv.archived_at') : __('jobs.'.$field) }}</flux:select.option>
@@ -276,6 +249,7 @@ new #[Layout('layouts.app')] class extends Component
             <flux:button type="submit" variant="primary">{{ __('csv.preview') }}</flux:button>
         </form>
     @endif
+
 
     @if ($previewing)
         @php($preview = $this->previewData)
@@ -303,7 +277,7 @@ new #[Layout('layouts.app')] class extends Component
                                                 @continue($field === 'normalized_application_url')
                                                 @if ($field === 'extra_fields')
                                                     @foreach ($value ?? [] as $extraKey => $extraValue)
-                                                        <div><dt class="font-medium">{{ $extraKey }}</dt><dd class="whitespace-pre-wrap break-words">{{ $extraValue }}</dd></div>
+                                                        <div><dt class="font-medium">{{ ucfirst(str_replace('_', ' ', $extraKey)) }}</dt><dd class="whitespace-pre-wrap break-words">{{ $extraValue }}</dd></div>
                                                     @endforeach
                                                 @else
                                                     <div><dt class="font-medium">{{ $field === 'archived_at' ? __('csv.archived_at') : __('jobs.'.$field) }}</dt><dd class="whitespace-pre-wrap break-words">{{ is_bool($value) ? ($value ? __('jobs.yes') : __('jobs.no')) : ($value instanceof \BackedEnum ? $value->label() : (string) $value) }}</dd></div>
@@ -333,4 +307,33 @@ new #[Layout('layouts.app')] class extends Component
             <flux:button wire:click="importReviewed" variant="primary" wire:loading.attr="disabled">{{ __('csv.commit') }}</flux:button>
         </section>
     @endif
+
+    <section class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+        <flux:heading size="lg" level="2">{{ __('jobs.add_from_urls') }}</flux:heading>
+        <flux:text>{{ __('jobs.add_from_urls_hint') }}</flux:text>
+        <form wire:submit="addUrls" class="space-y-4">
+            <flux:textarea wire:model="urls" rows="4" :placeholder="__('jobs.urls_placeholder')" :aria-label="__('jobs.add_from_urls')" />
+            @error('urls') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+            <flux:button type="submit" variant="primary">{{ __('jobs.add_from_urls_submit') }}</flux:button>
+        </form>
+    </section>
+
+    <section id="saved" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+        <flux:heading size="lg" level="2">{{ __('jobs.saved_title') }}</flux:heading>
+        <flux:text>{{ __('jobs.saved_hint') }}</flux:text>
+        <form wire:submit="importSaved" class="space-y-4">
+            <flux:textarea wire:model="savedText" rows="5" :placeholder="__('jobs.saved_text')" :aria-label="__('jobs.saved_text')" />
+            @error('savedText') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div><flux:input wire:model="savedUrl" type="url" :label="__('jobs.saved_url')" />@error('savedUrl') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror</div>
+                <flux:select wire:model="savedJob" :label="__('jobs.saved_job')">
+                    <flux:select.option value="">{{ __('jobs.saved_job_new') }}</flux:select.option>
+                    @foreach ($this->jobs as $job)<flux:select.option value="{{ $job->id }}">{{ $job->company }} — {{ $job->title }}</flux:select.option>@endforeach
+                </flux:select>
+            </div>
+            @error('savedJob') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+            <flux:button type="submit" variant="primary">{{ __('jobs.saved_submit') }}</flux:button>
+        </form>
+    </section>
+
 </div>
