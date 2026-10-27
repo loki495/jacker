@@ -32,6 +32,8 @@ class AiRequest extends Model
 
     public const KIND_SCORE = 'score';
 
+    public const KIND_LETTER = 'letter';
+
     #[\Override]
     protected $guarded = ['id', 'created_at', 'updated_at'];
 

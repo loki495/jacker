@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\CoverLetterPdfController;
 use App\Http\Controllers\CsvExportController;
 use Illuminate\Support\Facades\Route;
 
@@ -10,6 +11,7 @@ Route::livewire('/opportunities/create', 'pages::editor')->name('opportunities.c
 Route::livewire('/opportunities/{opportunity}/edit', 'pages::editor')->name('opportunities.edit');
 Route::livewire('/opportunities/{opportunity}', 'pages::detail')->name('opportunities.show');
 Route::livewire('/opportunities/{opportunity}/questions', 'pages::answers')->name('opportunities.questions');
+Route::get('/opportunities/{opportunity}/cover-letter.pdf', CoverLetterPdfController::class)->name('opportunities.cover-letter');
 Route::livewire('/questions', 'pages::questions')->name('questions');
 
 Route::livewire('/queue', 'pages::queue')->name('queue');

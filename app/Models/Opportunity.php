@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -100,6 +101,12 @@ class Opportunity extends Model
         $parts = preg_split('/\R|;/u', $text) ?: [];
 
         return array_values(array_filter(array_map(fn (string $part): string => trim($part, " \t-•*"), $parts), fn (string $part): bool => $part !== ''));
+    }
+
+    /** @return HasOne<CoverLetter, $this> */
+    public function coverLetter(): HasOne
+    {
+        return $this->hasOne(CoverLetter::class);
     }
 
     /** @return HasMany<OpportunityEvent, $this> */

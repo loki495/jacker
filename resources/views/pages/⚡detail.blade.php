@@ -5,25 +5,74 @@ declare(strict_types=1);
 use App\Actions\ArchiveOpportunity;
 use App\Actions\ChangeOpportunityStatus;
 use App\Actions\QueueLinkChecks;
+use App\Actions\RequestLetterSuggestions;
 use App\Actions\RequestScoring;
+use App\Actions\SaveCoverLetter;
 use App\Enums\OpportunityStatus;
+use App\Models\CoverLetter;
 use App\Models\Opportunity;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 new #[Layout('layouts.app')] class extends Component
 {
+    use WithFileUploads;
+
     #[Locked]
     public int $opportunityId;
 
     public string $status = '';
 
+    public string $letterBody = '';
+
+    public $letterFile = null;
+
     public function mount(Opportunity $opportunity): void
     {
         $this->opportunityId = $opportunity->id;
         $this->status = $opportunity->status->value;
+        $this->letterBody = (string) $this->letter?->body;
+    }
+
+    #[Computed]
+    public function letter(): ?CoverLetter
+    {
+        return CoverLetter::query()->where('opportunity_id', $this->opportunityId)->first();
+    }
+
+    #[Computed]
+    public function letterPending(): bool
+    {
+        return $this->letter instanceof CoverLetter && app(RequestLetterSuggestions::class)->isPending($this->letter);
+    }
+
+    public function updatedLetterFile(): void
+    {
+        $this->validate(['letterFile' => ['file', 'mimes:txt,md', 'max:200']], ['letterFile.*' => __('letter.upload_invalid')]);
+        $this->letterBody = (string) mb_convert_encoding((string) file_get_contents($this->letterFile->getRealPath()), 'UTF-8', 'UTF-8');
+        $this->letterFile = null;
+    }
+
+    public function saveLetter(SaveCoverLetter $save): void
+    {
+        $this->validate(['letterBody' => ['nullable', 'string', 'max:'.SaveCoverLetter::MAX]], ['letterBody.max' => __('letter.body_too_long', ['max' => SaveCoverLetter::MAX])]);
+        $saved = $save->handle($this->opportunity, $this->letterBody);
+        unset($this->letter);
+        $this->letterBody = (string) $saved?->body;
+        session()->flash('message', $saved instanceof CoverLetter ? __('letter.saved') : __('letter.removed'));
+    }
+
+    public function suggestLetter(RequestLetterSuggestions $suggest): void
+    {
+        $letter = $this->letter;
+        session()->flash('message', match (true) {
+            ! $letter instanceof CoverLetter => __('letter.suggest_save_first'),
+            $suggest->handle($letter) => __('letter.suggest_queued'),
+            default => __('letter.suggest_pending'),
+        });
     }
 
     #[Computed]
@@ -77,6 +126,13 @@ new #[Layout('layouts.app')] class extends Component
         </dl></section>
         @foreach(['benefits','responsibilities','requirements'] as $field)<section class="panel detail-panel"><h2>{{ __('jobs.'.$field) }}</h2>@if($job->listItems($field))<ul class="detail-list">@foreach($job->listItems($field) as $item)<li>{{ $item }}</li>@endforeach</ul>@else<p class="preserve-text">{{ __('jobs.nothing_added') }}</p>@endif</section>@endforeach
         <section class="panel detail-panel"><h2>{{ __('jobs.notes') }}</h2><p class="preserve-text">{{ $job->notes ?: __('jobs.nothing_added') }}</p></section>
+        <section class="panel detail-panel" id="letter" @if($this->letterPending) wire:poll.5s @endif><h2>{{ __('letter.heading') }}</h2><p class="field-hint">{{ __('letter.intro') }}</p>
+            <flux:textarea wire:model="letterBody" rows="14" :label="__('letter.body')" />@error('letterBody')<p role="alert" class="text-red-700">{{ $message }}</p>@enderror
+            <input type="file" wire:model="letterFile" accept=".txt,.md,text/plain,text/markdown" aria-label="{{ __('letter.upload') }}">@error('letterFile')<p role="alert" class="text-red-700">{{ $message }}</p>@enderror
+            <div class="badges"><flux:button wire:click="saveLetter" variant="primary" wire:loading.attr="disabled">{{ __('letter.save') }}</flux:button>
+            @if($this->letter)<flux:button href="{{ route('opportunities.cover-letter', $job) }}" icon="arrow-down-tray">{{ __('letter.pdf') }}</flux:button><flux:button wire:click="suggestLetter" wire:loading.attr="disabled" :disabled="$this->letterPending">{{ $this->letterPending ? __('letter.suggest_working') : __('letter.suggest') }}</flux:button>@endif</div>
+            @if($this->letter?->suggestions)<h3>{{ __('letter.suggestions') }}</h3><p class="field-hint">{{ __('letter.suggestions_note', ['when' => $this->letter->suggested_at?->diffForHumans()]) }}</p><p class="preserve-text">{{ $this->letter->suggestions }}</p>@endif
+        </section>
         @if($job->extra_fields)<section class="panel detail-panel"><h2>{{ __('jobs.extra_fields') }}</h2><dl class="detail-facts">@foreach($job->extra_fields as $key => $value)<div><dt>{{ ucfirst(str_replace('_', ' ', $key)) }}</dt><dd>{{ $value ?? '—' }}</dd></div>@endforeach</dl></section>@endif
     </div><aside class="detail-sidebar">
         <section class="panel detail-panel"><h2>{{ __('jobs.application') }}</h2><flux:select wire:model.live="status" :label="__('jobs.status')">@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select><dl class="detail-facts single"><div><dt>{{ __('jobs.has_applied') }}</dt><dd>{{ $job->has_applied ? __('jobs.yes') : __('jobs.no') }}</dd></div>@foreach(['applied_at','deadline','follow_up_at'] as $field)<div><dt>{{ __('jobs.'.$field) }}</dt><dd>{{ $job->{$field}?->format('M j, Y') ?? __('jobs.unknown') }}</dd></div>@endforeach</dl>

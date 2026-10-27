@@ -50,19 +50,20 @@ extract_one() {
 # Runs one prompt (stdin) through one agent with no way to act on the listing text; prints the reply. Sessioneer only launches claude,
 # so codex and opencode run through their own CLIs (read-only sandbox / empty directory).
 run_agent() {
-    local agent="$1" model="$2" out
+    local agent="$1" model="$2" thinking="${3:-off}" out effort=() codex_effort=() variant=()
+    if [[ "$thinking" =~ ^(low|medium|high)$ ]]; then effort=(--effort "$thinking"); codex_effort=(-c "model_reasoning_effort=\"$thinking\""); variant=(--variant "$thinking"); fi
     case "$agent" in
         claude)
             out="$(mktemp)"
-            timeout "$((TIMEOUT + 30))" sessioneer --wait --no-tools --timeout "$TIMEOUT" --agent claude --model "$model" --workdir "$WORKDIR" - 2>"$out" || { rm -f "$out"; return 1; }
+            timeout "$((TIMEOUT + 30))" sessioneer --wait --no-tools --timeout "$TIMEOUT" --agent claude --model "$model" "${effort[@]}" --workdir "$WORKDIR" - 2>"$out" || { rm -f "$out"; return 1; }
             [ -z "$(head -n1 "$out")" ] || sessioneer --kill "$(head -n1 "$out")" >/dev/null 2>&1 || true
             rm -f "$out" ;;
         codex)
             out="$(mktemp)"
-            timeout "$((TIMEOUT + 30))" codex exec --ignore-user-config --ignore-rules --sandbox read-only --skip-git-repo-check --ephemeral -C "$WORKDIR" -m "$model" -o "$out" - >/dev/null \
+            timeout "$((TIMEOUT + 30))" codex exec --ignore-user-config --ignore-rules --sandbox read-only --skip-git-repo-check --ephemeral -C "$WORKDIR" -m "$model" "${codex_effort[@]}" -o "$out" - >/dev/null \
                 && cat "$out"
             rm -f "$out" ;;
-        opencode) XDG_CONFIG_HOME="$WORKDIR/.config" OPENCODE_CONFIG_CONTENT="$OPENCODE_NO_TOOLS" timeout "$((TIMEOUT + 30))" opencode run --pure --dir "$WORKDIR" -m "$model" "$(cat)" ;;
+        opencode) XDG_CONFIG_HOME="$WORKDIR/.config" OPENCODE_CONFIG_CONTENT="$OPENCODE_NO_TOOLS" timeout "$((TIMEOUT + 30))" opencode run --pure --dir "$WORKDIR" -m "$model" "${variant[@]}" "$(cat)" ;;
         *) return 1 ;;
     esac
 }
@@ -84,8 +85,23 @@ score_one() {
     artisan score:complete "$id" --fail="no agent in the chain returned a usable reply"
 }
 
+# Cover letter suggestions run the single agent/model/thinking saved in Settings (checked again against the allowlists here) and store the plain-text reply.
+letter_one() {
+    local job id prompt agent model thinking reply
+    job="$(artisan letter:claim)"
+    [ -n "$job" ] || return 1
+    id="$(jq -r .id <<<"$job")"; prompt="$(jq -r .prompt <<<"$job")"
+    agent="$(jq -r .agent <<<"$job")"; model="$(jq -r .model <<<"$job")"; thinking="$(jq -r .thinking <<<"$job")"
+    if [[ "$agent" =~ ^(claude|codex|opencode)$ ]] && [[ "$model" =~ ^[A-Za-z0-9][A-Za-z0-9._:/-]*$ ]] && [[ "$thinking" =~ ^(off|low|medium|high)$ ]] \
+        && reply="$(run_agent "$agent" "$model" "$thinking" <<<"$prompt" 2>/dev/null)" && [ -n "$reply" ]; then
+        artisan letter:complete "$id" <<<"$reply"
+    else
+        artisan letter:complete "$id" --fail="the saved agent returned no usable reply"
+    fi
+}
+
 work_one() {
-    render_one || extract_one || score_one
+    render_one || extract_one || score_one || letter_one
 }
 
 if [ "${1:-}" = "--loop" ]; then

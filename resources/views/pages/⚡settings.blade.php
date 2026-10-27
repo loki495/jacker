@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use App\Enums\WorkArrangement;
+use App\Support\CoverLetterSettings;
 use App\Support\ProfileLinks;
 use App\Support\ScoringSettings;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -27,6 +29,20 @@ new #[Layout('layouts.app')] class extends Component
     public string $linkedin = '';
 
     public string $github = '';
+
+    public string $name = '';
+
+    public string $email = '';
+
+    public string $phone = '';
+
+    public string $location = '';
+
+    public string $coverAgent = '';
+
+    public string $coverModel = '';
+
+    public string $coverThinking = '';
 
     public string $message = '';
 
@@ -56,6 +72,32 @@ new #[Layout('layouts.app')] class extends Component
             ProfileLinks::save($site, trim($this->{$site}));
         }
         $this->message = __('settings.profile_saved');
+    }
+
+    public function saveContact(): void
+    {
+        $this->validate(['name' => ['nullable', 'string', 'max:120'], 'email' => ['nullable', 'email', 'max:190'], 'phone' => ['nullable', 'string', 'max:60'], 'location' => ['nullable', 'string', 'max:120']]);
+        DB::transaction(function (): void {
+            foreach (CoverLetterSettings::CONTACT as $field) {
+                CoverLetterSettings::save('profile.'.$field, trim($this->{$field}));
+            }
+        });
+        $this->message = __('letter.contact_saved');
+    }
+
+    public function saveCoverAi(): void
+    {
+        $this->validate([
+            'coverAgent' => ['required', Rule::in(CoverLetterSettings::AGENTS)],
+            'coverModel' => ['required', 'string', 'max:100', 'regex:'.CoverLetterSettings::MODEL_PATTERN],
+            'coverThinking' => ['required', Rule::in(CoverLetterSettings::THINKING)],
+        ], ['coverModel.regex' => __('letter.model_invalid')]);
+        DB::transaction(function (): void {
+            CoverLetterSettings::save('cover.agent', $this->coverAgent);
+            CoverLetterSettings::save('cover.model', trim($this->coverModel));
+            CoverLetterSettings::save('cover.thinking', $this->coverThinking);
+        });
+        $this->message = __('letter.ai_saved');
     }
 
     public function save(): void
@@ -112,6 +154,10 @@ new #[Layout('layouts.app')] class extends Component
         foreach (ProfileLinks::all() as $site => $url) {
             $this->{$site} = $url;
         }
+        foreach (CoverLetterSettings::contact() as $field => $value) {
+            $this->{$field} = $value;
+        }
+        ['agent' => $this->coverAgent, 'model' => $this->coverModel, 'thinking' => $this->coverThinking] = CoverLetterSettings::ai();
         $this->rubric = (string) ScoringSettings::get('rubric');
         $this->payWeight = (string) ScoringSettings::get('pay_weight');
         $this->payUnknown = (string) ScoringSettings::get('pay_unknown');
@@ -135,6 +181,27 @@ new #[Layout('layouts.app')] class extends Component
             <div><flux:input wire:model="github" type="url" :label="__('settings.github')" placeholder="https://github.com/..." />@error('github') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror</div>
         </div>
         <flux:button type="submit" variant="primary">{{ __('settings.profile_save') }}</flux:button>
+    </form>
+    <form wire:submit="saveContact" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+        <flux:heading size="lg" level="2">{{ __('letter.contact_title') }}</flux:heading>
+        <flux:text>{{ __('letter.contact_intro') }}</flux:text>
+        <div class="grid gap-4 sm:grid-cols-2">
+            @foreach (CoverLetterSettings::CONTACT as $field)
+                <div><flux:input wire:model="{{ $field }}" :label="__('letter.'.$field)" wire:key="contact-{{ $field }}" />@error($field) <p role="alert" class="text-red-700">{{ $message }}</p> @enderror</div>
+            @endforeach
+        </div>
+        <flux:button type="submit" variant="primary">{{ __('letter.contact_save') }}</flux:button>
+    </form>
+    <form wire:submit="saveCoverAi" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+        <flux:heading size="lg" level="2">{{ __('letter.ai_title') }}</flux:heading>
+        <flux:text>{{ __('letter.ai_intro') }}</flux:text>
+        <div class="grid gap-4 sm:grid-cols-3">
+            <flux:select wire:model="coverAgent" :label="__('letter.agent')">@foreach (CoverLetterSettings::AGENTS as $agent)<option value="{{ $agent }}">{{ $agent }}</option>@endforeach</flux:select>
+            <flux:input wire:model="coverModel" :label="__('letter.model')" />
+            <flux:select wire:model="coverThinking" :label="__('letter.thinking')">@foreach (CoverLetterSettings::THINKING as $level)<option value="{{ $level }}">{{ $level === 'off' ? __('letter.thinking_off') : ucfirst($level) }}</option>@endforeach</flux:select>
+        </div>
+        @foreach (['coverAgent', 'coverModel', 'coverThinking'] as $field) @error($field) <p role="alert" class="text-red-700">{{ $message }}</p> @enderror @endforeach
+        <flux:button type="submit" variant="primary">{{ __('letter.ai_save') }}</flux:button>
     </form>
     <flux:heading size="lg" level="2">{{ __('settings.grading_title') }}</flux:heading>
     <form wire:submit="save" class="space-y-8">
