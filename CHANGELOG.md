@@ -1,0 +1,11 @@
+# Changelog
+
+## Unreleased
+
+- Docs: README split into `docs/`, contributing and security files, demo seeder.
+- Tests: board stage and selection, queue polling, shell markup, import scroll, CSV header aliases, cover letter commands; coverage floor 94%.
+- Theme font now matches the declared Instrument Sans.
+
+## 0.1.0
+
+First public version: opportunity tracker with lifecycle history, ranked overview and board, CSV import/export, link checks, saved pages, AI-assisted extraction, scoring with editable criteria, interview question bank, per-job cover letters with PDF export, job finder, light/dark theme, GitHub Actions CI with a coverage floor.
