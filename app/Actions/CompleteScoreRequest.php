@@ -8,6 +8,7 @@ use App\Enums\LinkCheckStatus;
 use App\Models\AiRequest;
 use App\Models\Opportunity;
 use App\Support\Desirability;
+use App\Support\ScoringSettings;
 
 final readonly class CompleteScoreRequest
 {
@@ -39,7 +40,7 @@ final readonly class CompleteScoreRequest
             'skill_match' => $match,
             'desirability' => $desirability,
             'skill_match_notes' => $note !== '' ? 'AI: '.$note : $job->skill_match_notes,
-            'desirability_notes' => 'AI: 60% pay midpoint, 40% work mode'.($eastern ? '; Eastern-only hours -1' : '').'.',
+            'desirability_notes' => sprintf('AI: %d%% pay midpoint, %d%% work mode', round((float) ScoringSettings::get('pay_weight') * 100), round((1 - (float) ScoringSettings::get('pay_weight')) * 100)).($eastern ? '; Eastern-only hours -'.ScoringSettings::get('eastern_penalty') : '').'.',
         ], $job);
         $request->update([
             'status' => LinkCheckStatus::Done, 'message' => __('jobs.score_done', ['match' => $match, 'desirability' => $desirability]),

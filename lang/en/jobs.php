@@ -306,7 +306,7 @@ return [
     'score_bad_output' => 'The model did not return a usable skill match.',
     'score_done' => 'Fit :match/5, want :desirability/5',
     'score_title' => 'Scoring queue',
-    'score_intro' => 'Fit (skill match) is judged by AI from the listing; want (desirability) is 60% pay and 40% work mode, computed here, minus one for Eastern-only hours. Agents are tried in order: Claude Haiku, Codex, OpenCode.',
+    'score_intro' => 'Fit (skill match) is judged by AI from the listing; want (desirability) is computed here from pay and work mode, minus a penalty for Eastern-only hours (weights are set under Grading settings). Agents are tried in order: Claude Haiku, Codex, OpenCode.',
     'score_clear' => 'Clear done',
     'score_clear_confirm' => 'Remove all finished scoring requests from this list? The scores stay on the listings.',
     'score_cleared' => ':count finished requests cleared.',

@@ -84,3 +84,17 @@ it('queues a single listing from its page, whatever its status, and never twice'
         ->call('scoreWithAi')->assertSee(__('jobs.score_one_pending'));
     expect(AiRequest::query()->where('opportunity_id', $job->id)->count())->toBe(1);
 });
+
+it('uses saved grading criteria in the claim prompt and the desirability note, and validates the settings page', function (): void {
+    Livewire::test('pages::settings')->set('rubric', 'Only Rust matters.')->set('payWeight', '0.25')->call('save')->assertHasNoErrors();
+    $job = scoreJob();
+    $request = AiRequest::query()->create(['opportunity_id' => $job->id, 'kind' => AiRequest::KIND_SCORE, 'mode' => RequestScoring::ALL, 'agent' => 'claude', 'model' => 'haiku']);
+
+    expect(app(ClaimScoreRequest::class)->handle()['prompt'])->toContain('Only Rust matters.');
+    app(CompleteScoreRequest::class)->handle($request->refresh(), '{"skill_match": 3, "eastern_only_hours": false, "note": "ok"}');
+    expect($job->refresh()->desirability_notes)->toContain('25% pay midpoint, 75% work mode');
+
+    Livewire::test('pages::settings')->set('payWeight', '2')->call('save')->assertHasErrors(['payWeight'])
+        ->set('payWeight', '0.5')->set('payBands', '100000 = 2')->call('save')->assertHasErrors(['payBands'])
+        ->set('rubric', '')->call('save')->assertHasErrors(['rubric']);
+});
