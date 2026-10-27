@@ -54,4 +54,4 @@ jobs:
         run: composer audit
 
       - name: Pest with coverage
-        run: vendor/bin/pest --coverage --min=93
+        run: vendor/bin/pest --coverage --min=94
