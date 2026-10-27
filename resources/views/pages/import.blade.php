@@ -219,7 +219,7 @@ new #[Layout('layouts.app')] class extends Component
         <flux:text class="mt-2">{{ __('csv.intro') }}</flux:text>
     </div>
     @if ($message)
-        <p role="status" class="success-message mb-8!">{{ $message }} <a href="/link-checks" class="underline" wire:navigate>{{ __('jobs.link_checks') }}</a></p>
+        <p role="status" class="success-message mb-8!">{{ $message }} <a href="/queue?kind=links" class="underline" wire:navigate>{{ __('jobs.link_checks') }}</a></p>
     @endif
     @if ($result)
         <p role="status" class="success-message mb-8!">{{ $result }} <a href="/" class="underline">{{ __('csv.open_workspace') }}</a></p>

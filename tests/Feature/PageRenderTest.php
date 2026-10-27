@@ -68,7 +68,7 @@ it('answers render:allow and drives claim and complete through artisan', functio
 
 it('queues the render before the AI pass from one button and holds the extraction until the render ends', function (): void {
     $check = checkFor('https://jobs.example/1');
-    $page = Livewire::test('pages::link-checks')->assertSee(__('jobs.ai_extract'))->call('readWithAi', $check->id)
+    $page = Livewire::test('pages::queue')->assertSee(__('jobs.ai_extract'))->call('readWithAi', $check->id)
         ->assertSee(__('jobs.render_state_queued'))->assertSee(__('jobs.ai_state_queued'))->assertDontSee(__('jobs.ai_extract'));
     $render = AiRequest::query()->where('kind', 'render')->firstOrFail();
     expect(AiRequest::query()->where('kind', 'extract')->count())->toBe(1)->and(app(ClaimAiRequest::class)->handle())->toBeNull();

@@ -70,11 +70,11 @@ it('fails on an unusable reply and leaves the scores alone', function (): void {
 
 it('queues from the scoring page buttons and clears only done requests from the queue page', function (): void {
     scoreJob();
-    Livewire::test('pages::scoring')->call('rescore', 'all')->assertSee('1 listings queued');
-    Livewire::test('pages::scoring')->call('rescore', 'bogus')->assertStatus(422);
+    Livewire::test('pages::queue')->call('rescore', 'all')->assertSee('1 listings queued');
+    Livewire::test('pages::queue')->call('rescore', 'bogus')->assertStatus(422);
     $pending = AiRequest::query()->firstOrFail();
     AiRequest::query()->create(['opportunity_id' => $pending->opportunity_id, 'kind' => 'score', 'mode' => 'all', 'status' => LinkCheckStatus::Done]);
-    Livewire::test('pages::scoring')->assertSee(__('jobs.score_title'))->call('clearDone')->assertSee('1 finished requests cleared');
+    Livewire::test('pages::queue')->assertSee(__('jobs.score_title'))->call('clearDone')->assertSee('1 finished requests cleared');
     expect(AiRequest::query()->count())->toBe(1);
 });
 

@@ -20,9 +20,8 @@
                 <a href="/?status=open_unapplied" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('home')])><span>▦</span>{{ __('jobs.overview') }}</a>
                 <a href="/opportunities/create" wire:navigate class="nav-link"><span>＋</span>{{ __('jobs.add_job') }}</a>
                 <a href="/import" wire:navigate class="nav-link"><span>↥</span>{{ __('jobs.import') }}</a>
-                <a href="/link-checks" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('link-checks')])><span>⟳</span>{{ __('jobs.nav_link_checks') }}</a>
+                <a href="/queue" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('queue')])><span>⟳</span>{{ __('jobs.nav_queue') }}</a>
                 <a href="/job-finder" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('job-finder')])><span>⌕</span>{{ __('scrapers.nav') }}</a>
-                <a href="/scoring" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('scoring')])><span>★</span>{{ __('jobs.nav_scoring') }}</a>
                 <a href="/questions" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('questions')])><span>?</span>{{ __('questions.nav') }}</a>
                 <a href="/settings" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('settings')])><span>⚙</span>{{ __('settings.nav') }}</a>
                 <div class="nav-theme"><flux:radio.group x-data variant="segmented" size="sm" x-model="$flux.appearance" :aria-label="__('jobs.appearance')"><flux:radio value="light" icon="sun" :aria-label="__('jobs.appearance_light')" /><flux:radio value="dark" icon="moon" :aria-label="__('jobs.appearance_dark')" /><flux:radio value="system" icon="computer-desktop" :aria-label="__('jobs.appearance_system')" /></flux:radio.group></div>

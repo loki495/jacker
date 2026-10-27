@@ -90,7 +90,7 @@ it('marks the request failed on unusable output without touching jobs', function
 
 it('offers the AI button only after explicit click and queues through the page', function (): void {
     $check = noDataCheck();
-    Livewire::test('pages::link-checks')->assertSee(__('jobs.ai_extract'))->call('readWithAi', $check->id)->assertSee(__('jobs.ai_queued'))->assertDontSee(__('jobs.ai_extract'));
+    Livewire::test('pages::queue')->assertSee(__('jobs.ai_extract'))->call('readWithAi', $check->id)->assertSee(__('jobs.ai_queued'))->assertDontSee(__('jobs.ai_extract'));
     expect(AiRequest::query()->count())->toBe(1);
 });
 
@@ -113,7 +113,7 @@ it('hands the bridge the configured agent chain and records which agent answered
 
 it('shows the AI request state in the log from pending to its result', function (): void {
     $check = noDataCheck();
-    $page = Livewire::test('pages::link-checks')->call('readWithAi', $check->id)->assertSee(__('jobs.ai_state_queued'))->assertDontSee(__('jobs.ai_extract'));
+    $page = Livewire::test('pages::queue')->call('readWithAi', $check->id)->assertSee(__('jobs.ai_state_queued'))->assertDontSee(__('jobs.ai_extract'));
     $request = AiRequest::query()->firstOrFail();
 
     $request->update(['status' => LinkCheckStatus::Running]);
@@ -154,7 +154,7 @@ it('lets an explicit AI pass replace long text fields and keeps the earlier valu
     expect($job->title)->toBe('Keep me')->and($job->location)->toBe('Keep too')->and($job->responsibilities)->toBe("Full\nlist")->and($job->requirements)->toBe('New reqs')
         ->and($request->refresh()->replaced)->toBe(['responsibilities' => 'Old cut-off text']);
 
-    Livewire::test('pages::link-checks')->assertSee(__('jobs.ai_replaced', ['fields' => 'responsibilities']))->assertSee('Old cut-off text');
+    Livewire::test('pages::queue')->assertSee(__('jobs.ai_replaced', ['fields' => 'responsibilities']))->assertSee('Old cut-off text');
 });
 
 it('shows replaced values and the raw reply as bullet items, and falls back to plain text for a non-JSON reply', function (): void {
@@ -163,18 +163,18 @@ it('shows replaced values and the raw reply as bullet items, and falls back to p
     $request->update(['status' => LinkCheckStatus::Running]);
     app(CompleteAiRequest::class)->handle($request->load('linkCheck.opportunity'), json_encode(['responsibilities' => "Build APIs\nRun on-call", 'requirements' => 'PHP; SQL']));
 
-    Livewire::test('pages::link-checks')->assertSeeHtml('<ul class="ai-items">')
+    Livewire::test('pages::queue')->assertSeeHtml('<ul class="ai-items">')
         ->assertSeeHtml('<li>Old one</li>')->assertSeeHtml('<li>Old two</li>')->assertSeeHtml('<li>Build APIs</li>')->assertSeeHtml('<li>Run on-call</li>')->assertSeeHtml('<li>PHP</li>')->assertSeeHtml('<li>SQL</li>');
 
     $bad = AiRequest::query()->create(['link_check_id' => noDataCheck()->id, 'kind' => 'extract', 'status' => LinkCheckStatus::Failed, 'output' => 'Sorry, no <b>JSON</b>']);
-    Livewire::test('pages::link-checks')->assertSeeHtml('<pre class="link-cell">Sorry, no &lt;b&gt;JSON&lt;/b&gt;</pre>');
+    Livewire::test('pages::queue')->assertSeeHtml('<pre class="link-cell">Sorry, no &lt;b&gt;JSON&lt;/b&gt;</pre>');
     expect($bad->outputFields())->toBeNull();
 });
 
 it('renders the log when the model replies with keys that are translation groups or unknown', function (): void {
     AiRequest::query()->create(['link_check_id' => noDataCheck()->id, 'kind' => 'extract', 'status' => LinkCheckStatus::Failed, 'message' => 'x',
         'output' => json_encode(['OpportunityStatus' => 'saved', 'nonsense' => 'Kept as typed', 'title' => 'Dev'])]);
-    Livewire::test('pages::link-checks')->assertOk()->assertSee('OpportunityStatus')->assertSee('nonsense')->assertSee('Kept as typed')->assertSee('Title');
+    Livewire::test('pages::queue')->assertOk()->assertSee('OpportunityStatus')->assertSee('nonsense')->assertSee('Kept as typed')->assertSee('Title');
 });
 
 it('tells the model the page is data only and stops the page from closing the fence early', function (): void {

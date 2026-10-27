@@ -158,7 +158,7 @@ it('drives link checks from the log page and the detail page', function (): void
     $job = Opportunity::factory()->create(['application_url' => 'https://jobs.example/ui']);
     Livewire::test('pages::import')->call('addUrls')->assertHasErrors(['urls' => 'required'])
         ->set('urls', "https://jobs.example/one\njunk")->call('addUrls')->assertHasNoErrors()->assertSee('Skipped');
-    Livewire::test('pages::link-checks')->call('checkAll')->assertSee($job->application_url);
+    Livewire::test('pages::queue')->call('checkAll')->assertSee($job->application_url);
     expect(LinkCheck::query()->count())->toBe(2);
     Livewire::test('pages::detail', ['opportunity' => $job])->call('checkLink');
     expect(LinkCheck::query()->where('opportunity_id', $job->id)->count())->toBe(1);
@@ -177,7 +177,7 @@ it('leaves applied or in-process jobs open when their link is dead', function (s
 it('shows log links as new-tab anchors only for web urls', function (): void {
     LinkCheck::query()->create(['url' => 'https://jobs.example/one', 'kind' => 'check', 'status' => LinkCheckStatus::Done]);
     LinkCheck::query()->create(['url' => 'javascript:alert(1)', 'kind' => 'check', 'status' => LinkCheckStatus::Done]);
-    Livewire::test('pages::link-checks')
+    Livewire::test('pages::queue')
         ->assertSeeHtml('href="https://jobs.example/one" target="_blank" rel="noopener noreferrer"')
         ->assertDontSeeHtml('href="javascript:alert(1)"');
 });
@@ -195,9 +195,18 @@ it('clears finished log entries by age and keeps pending ones and jobs', functio
     $cancelled = LinkCheck::query()->create(['url' => 'https://e.example', 'kind' => 'saved', 'status' => LinkCheckStatus::Done, 'page_text' => 'x']);
     AiRequest::query()->create(['link_check_id' => $cancelled->id, 'kind' => AiRequest::KIND_EXTRACT, 'status' => LinkCheckStatus::Queued]);
 
-    Livewire::test('pages::link-checks')->call('clearOld')->assertSee(__('jobs.link_cleared', ['count' => 1]));
+    Livewire::test('pages::queue')->call('clearOld')->assertSee(__('jobs.link_cleared', ['count' => 1]));
     expect(LinkCheck::query()->pluck('id')->all())->toEqualCanonicalizing([$recent->id, $queued->id, $waiting->id, $cancelled->id])->and(Opportunity::query()->count())->toBe(1);
 
-    Livewire::test('pages::link-checks')->set('clearDays', '0')->call('clearOld')->assertSee(__('jobs.link_cleared', ['count' => 2]));
+    Livewire::test('pages::queue')->set('clearDays', '0')->call('clearOld')->assertSee(__('jobs.link_cleared', ['count' => 2]));
     expect(LinkCheck::query()->pluck('id')->all())->toEqualCanonicalizing([$queued->id, $waiting->id])->and(AiRequest::query()->where('link_check_id', $cancelled->id)->exists())->toBeFalse();
+});
+
+it('shows link checks and grading on one queue page with a kind filter and redirects the old pages', function (): void {
+    $this->get('/link-checks')->assertRedirect('/queue?kind=links');
+    $this->get('/scoring')->assertRedirect('/queue?kind=grading');
+    Livewire::test('pages::queue')->assertSee(__('jobs.link_check_all'))->assertSee(__('jobs.score_all'))
+        ->call('showKind', 'links')->assertSee(__('jobs.link_check_all'))->assertDontSee(__('jobs.score_all'))
+        ->call('showKind', 'grading')->assertDontSee(__('jobs.link_check_all'))->assertSee(__('jobs.score_all'))
+        ->call('showKind', 'bogus')->assertStatus(422);
 });
