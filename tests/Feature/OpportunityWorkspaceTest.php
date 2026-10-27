@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Models\AiRequest;
+use App\Models\LinkCheck;
 use App\Models\Opportunity;
+use App\Support\Desirability;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -143,6 +147,39 @@ it('filters the pipeline from the summary cards', function (): void {
         ->call('showMetric', 'screening')->assertSee('Screening Co')->assertSee('Inbound Co')->assertDontSee('Due Co')->assertSet('status', 'recruiter')
         ->call('showMetric', 'total')->assertSet('status', '')->assertSet('due', false)->assertSee('Rejected Co')->assertSee('Offer Co')->assertDontSee('Archived Offer Co');
     Livewire::test('pages::home')->call('showMetric', 'bogus')->assertStatus(422);
+});
+
+it('closes and link-checks selected jobs in bulk', function (): void {
+    Queue::fake();
+    $a = Opportunity::factory()->create(['status' => 'saved', 'application_url' => 'https://jobs.example/a']);
+    $b = Opportunity::factory()->create(['status' => 'saved', 'application_url' => 'https://jobs.example/b']);
+    $c = Opportunity::factory()->create(['status' => 'saved']);
+
+    Livewire::test('pages::home')->set('selected', [(string) $a->id, (string) $b->id])->call('checkSelected')->assertSet('selected', [])->assertSee('Queued 2 link checks.');
+    expect(LinkCheck::query()->count())->toBe(2);
+
+    Livewire::test('pages::home')->set('selected', [(string) $a->id, (string) $b->id])->call('closeSelected')->assertSee('Closed 2 jobs.');
+    expect($a->refresh()->status->value)->toBe('closed')->and($b->refresh()->status->value)->toBe('closed')->and($c->refresh()->status->value)->toBe('saved');
+});
+
+it('queues AI grading for selected jobs and uses saved grading criteria', function (): void {
+    $a = Opportunity::factory()->create(['status' => 'saved']);
+    $b = Opportunity::factory()->create(['status' => 'saved']);
+    Livewire::test('pages::home')->set('selected', [(string) $a->id, (string) $b->id])->call('gradeSelected')->assertSee('Queued 2 for AI grading.');
+    expect(AiRequest::query()->where('kind', AiRequest::KIND_SCORE)->count())->toBe(2);
+
+    $remote = Opportunity::factory()->create(['work_arrangement' => 'remote', 'salary_min' => null, 'salary_max' => null]);
+    $before = Desirability::score($remote, false);
+    Livewire::test('pages::settings')->set('payWeight', '0')->set('workMode.remote', '1')->call('save')->assertHasNoErrors();
+    expect($before)->toBe(3)->and(Desirability::score($remote, false))->toBe(1);
+    Livewire::test('pages::settings')->set('payBands', '1 = 3')->call('save')->assertHasErrors(['payBands']);
+    Livewire::test('pages::settings')->call('resetDefaults');
+    expect(Desirability::score($remote, false))->toBe(3);
+});
+
+it('shows links, pay, work arrangement and selection on board cards', function (): void {
+    Opportunity::factory()->create(['company' => 'Board Co', 'status' => 'saved', 'application_url' => 'https://jobs.example/board', 'work_arrangement' => 'hybrid', 'salary_min' => 90000, 'salary_max' => 110000, 'currency' => 'USD', 'pay_period' => 'year']);
+    Livewire::test('pages::home')->set('view', 'board')->set('status', '')->assertSee('Hybrid')->assertSee('90,000')->assertSeeHtml('href="https://jobs.example/board"')->assertSeeHtml('wire:model.live="selected"');
 });
 
 it('colours score badges from red at 1 to green at 5 and leaves unscored plain', function (): void {

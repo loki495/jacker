@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use App\Actions\ChangeOpportunityStatus;
+use App\Actions\QueueLinkChecks;
+use App\Actions\RequestScoring;
 use App\Enums\OpportunityStatus;
 use App\Models\Opportunity;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -37,11 +40,48 @@ new #[Layout('layouts.app')] class extends Component
     #[Url]
     public bool $due = false;
 
+    public array $selected = [];
+
+    public string $notice = '';
+
     public function updated(string $property): void
     {
-        if ($property !== 'page') {
+        if ($property !== 'page' && ! str_starts_with($property, 'selected')) {
             $this->resetPage();
+            $this->selected = [];
         }
+    }
+
+    public function togglePage(): void
+    {
+        $ids = $this->opportunities->pluck('id')->map(strval(...))->all();
+        $this->selected = array_diff($ids, $this->selected) === [] ? [] : $ids;
+    }
+
+    public function closeSelected(): void
+    {
+        $jobs = $this->selectedJobs();
+        DB::transaction(fn () => $jobs->each(fn (Opportunity $job) => app(ChangeOpportunityStatus::class)->handle($job, OpportunityStatus::Closed)));
+        $this->notice = __('jobs.bulk_closed', ['count' => $jobs->count()]);
+        $this->selected = [];
+    }
+
+    public function checkSelected(QueueLinkChecks $queue): void
+    {
+        $this->notice = __('jobs.bulk_checked', ['count' => $queue->forOpportunities($this->selectedJobs())]);
+        $this->selected = [];
+    }
+
+    public function gradeSelected(RequestScoring $scoring): void
+    {
+        $queued = $this->selectedJobs()->filter(fn (Opportunity $job): bool => $scoring->forOpportunity($job))->count();
+        $this->notice = __('jobs.bulk_graded', ['count' => $queued]);
+        $this->selected = [];
+    }
+
+    private function selectedJobs()
+    {
+        return Opportunity::query()->whereIn('id', array_filter(array_map(intval(...), $this->selected)))->get();
     }
 
     public function changeStatus(int $id, string $status): void
@@ -144,28 +184,38 @@ new #[Layout('layouts.app')] class extends Component
         <div class="pipeline-header"><div><h2>{{ __('jobs.pipeline') }} <span class="count-badge">{{ $this->opportunities->total() }}</span></h2><p>{{ __('jobs.pipeline_hint') }}</p></div><div class="view-switch" aria-label="{{ __('jobs.view') }}"><button wire:click="$set('view', 'table')" @class(['active' => $view !== 'board'])>{{ __('jobs.table') }}</button><button wire:click="$set('view', 'board')" @class(['active' => $view === 'board'])>{{ __('jobs.board') }}</button></div></div>
         <div class="filters">
             <div class="search-control"><flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('jobs.search')" :aria-label="__('jobs.search')" /></div>
-            <flux:select wire:model.live="status" :aria-label="__('jobs.status')"><option value="open_unapplied">{{ __('jobs.status_open_unapplied') }}</option><option value="open">{{ __('jobs.status_open') }}</option><option value="recruiter">{{ __('jobs.status_recruiter') }}</option><option value="in_progress">{{ __('jobs.status_in_progress') }}</option><option value="">{{ __('jobs.all_statuses') }}</option>@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select>
+            @if($view !== 'board')<flux:select wire:model.live="status" :aria-label="__('jobs.status')"><option value="open_unapplied">{{ __('jobs.status_open_unapplied') }}</option><option value="open">{{ __('jobs.status_open') }}</option><option value="recruiter">{{ __('jobs.status_recruiter') }}</option><option value="in_progress">{{ __('jobs.status_in_progress') }}</option><option value="">{{ __('jobs.all_statuses') }}</option>@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select>@endif
             <flux:select wire:model.live="applied" :aria-label="__('jobs.application_filter')"><option value="">{{ __('jobs.all_applications') }}</option><option value="no">{{ __('jobs.not_applied') }}</option><option value="yes">{{ __('jobs.has_applied') }}</option></flux:select>
             <flux:select wire:model.live="sort" :aria-label="__('jobs.sort')">@foreach(['rank','skill_match','desirability','newest','pay','location','company','follow_up','deadline'] as $option)<option value="{{ $option }}">{{ __('jobs.sort_'.$option) }}</option>@endforeach</flux:select>
         </div>
         <div class="secondary-filters"><flux:checkbox wire:model.live="due" :label="__('jobs.due_only')" /><flux:select wire:model.live="archive" :aria-label="__('jobs.archive_filter')"><option value="active">{{ __('jobs.active_records') }}</option><option value="archived">{{ __('jobs.archived_records') }}</option><option value="all">{{ __('jobs.all_records') }}</option></flux:select></div>
+        @if($notice)<p role="status" class="rounded-xl bg-teal-50 p-3 text-teal-900">{{ $notice }}</p>@endif
+        @if($selected)<div class="flex flex-wrap items-center gap-3 p-3"><span>{{ __('jobs.bulk_selected', ['count' => count($selected)]) }}</span><flux:button size="sm" wire:click="checkSelected">{{ __('jobs.bulk_check') }}</flux:button><flux:button size="sm" wire:click="gradeSelected">{{ __('jobs.bulk_grade') }}</flux:button><flux:button size="sm" wire:click="closeSelected" wire:confirm="{{ __('jobs.bulk_close_confirm', ['count' => count($selected)]) }}">{{ __('jobs.bulk_close') }}</flux:button></div>@endif
         @if($view === 'board')
+            <div class="stage-filter px-6 pb-4"><flux:select wire:model.live="status" :label="__('jobs.stage')"><option value="open_unapplied">{{ __('jobs.status_open_unapplied') }}</option><option value="open">{{ __('jobs.status_open') }}</option><option value="recruiter">{{ __('jobs.status_recruiter') }}</option><option value="in_progress">{{ __('jobs.status_in_progress') }}</option><option value="">{{ __('jobs.all_statuses') }}</option>@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select></div>
             <div class="board">
-                @foreach(App\Enums\OpportunityStatus::cases() as $column)
-                    <div class="board-column"><h3><span class="status-dot"></span>{{ $column->label() }}</h3>
-                    @foreach($this->opportunities->where('status', $column) as $job)
-                        <article class="board-card" wire:key="board-{{ $job->id }}"><a href="/opportunities/{{ $job->id }}" wire:navigate><strong>{{ $job->company }}</strong><p>{{ $job->title ?: __('jobs.untitled_role') }}</p></a><small>{{ __('jobs.want') }} {{ $job->desirability ?? '—' }}/5 · {{ __('jobs.fit') }} {{ $job->skill_match ?? '—' }}/5</small><select aria-label="{{ __('jobs.change_status') }}" wire:change="changeStatus({{ $job->id }}, $event.target.value)">@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}" @selected($job->status === $option)>{{ $option->label() }}</option>@endforeach</select></article>
-                    @endforeach
-                    </div>
-                @endforeach
+                @forelse($this->opportunities as $job)
+                    <article class="board-card" wire:key="board-{{ $job->id }}">
+                            <header class="bc-head"><input type="checkbox" wire:model.live="selected" value="{{ $job->id }}" aria-label="{{ __('jobs.bulk_select', ['company' => $job->company]) }}"><a href="/opportunities/{{ $job->id }}" wire:navigate class="bc-company">{{ $job->company }}</a>@if($job->application_url)<a href="{{ $job->application_url }}" target="_blank" rel="noopener noreferrer" class="bc-link" title="{{ __('jobs.open_application') }}" aria-label="{{ __('jobs.open_application_for', ['company' => $job->company]) }}">↗</a>@endif</header>
+                            <a href="/opportunities/{{ $job->id }}" wire:navigate class="bc-title">{{ $job->title ?: __('jobs.untitled_role') }}</a>
+                            <dl class="bc-meta">
+                                <div><dt>{{ __('jobs.location') }}</dt><dd>{{ $job->work_arrangement->label() }}@if($job->location) · {{ $job->location }}@endif</dd></div>
+                                <div><dt>{{ __('jobs.compensation') }}</dt><dd>@if($job->salary_min !== null || $job->salary_max !== null){{ $job->currency }} {{ $job->salary_min !== null ? number_format((float) $job->salary_min, 0) : '—' }}–{{ $job->salary_max !== null ? number_format((float) $job->salary_max, 0) : '—' }} {{ $job->pay_period->label() }}@else<span class="muted">{{ __('jobs.not_listed') }}</span>@endif</dd></div>
+                            </dl>
+                            <div class="bc-ranks"><span>{{ __('jobs.want') }} <b class="rank-score score-{{ $job->desirability ?? 'none' }}">{{ $job->desirability ?? '—' }}</b></span><span>{{ __('jobs.fit') }} <b class="rank-score secondary score-{{ $job->skill_match ?? 'none' }}">{{ $job->skill_match ?? '—' }}</b></span></div>
+                            <select aria-label="{{ __('jobs.change_status') }}" wire:change="changeStatus({{ $job->id }}, $event.target.value)">@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}" @selected($job->status === $option)>{{ $option->label() }}</option>@endforeach</select>
+                        </article>
+                @empty
+                    <div class="table-empty"><h3>{{ __('jobs.pipeline_empty_title') }}</h3><p>{{ __('jobs.pipeline_empty') }}</p></div>
+                @endforelse
             </div>
             <p class="board-note">{{ __('jobs.board_hint') }}</p>
         @else
-            <div class="table-scroll"><table><thead><tr><th>{{ __('jobs.role_company') }}</th><th>{{ __('jobs.status') }}</th><th>{{ __('jobs.location') }}</th><th>{{ __('jobs.compensation') }}</th><th>{{ __('jobs.want') }}</th><th>{{ __('jobs.fit') }}</th><th>{{ __('jobs.follow_up') }}</th></tr></thead><tbody>
+            <div class="table-scroll"><table><thead><tr><th><input type="checkbox" wire:click="togglePage" @checked($this->opportunities->count() > 0 && collect($this->opportunities->pluck('id'))->every(fn ($id) => in_array((string) $id, $selected, true))) aria-label="{{ __('jobs.bulk_select_page') }}"></th><th>{{ __('jobs.role_company') }}</th><th>{{ __('jobs.status') }}</th><th>{{ __('jobs.location') }}</th><th>{{ __('jobs.compensation') }}</th><th>{{ __('jobs.want') }}</th><th>{{ __('jobs.fit') }}</th><th>{{ __('jobs.follow_up') }}</th></tr></thead><tbody>
                 @forelse($this->opportunities as $job)
-                    <tr wire:key="row-{{ $job->id }}"><td><a class="role-link" href="/opportunities/{{ $job->id }}" wire:navigate>{{ $job->title ?: __('jobs.untitled_role') }}</a><span class="company-name">{{ $job->company }}@if($job->archived_at) · {{ __('jobs.archived') }}@endif</span></td><td><select class="status-select status-{{ $job->status->value }}" aria-label="{{ __('jobs.status_for', ['company' => $job->company]) }}" wire:change="changeStatus({{ $job->id }}, $event.target.value)">@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}" @selected($job->status === $option)>{{ $option->label() }}</option>@endforeach</select></td><td>{{ $job->location ?: '—' }}<span class="company-name">{{ $job->work_arrangement->label() }}</span></td><td class="salary">@if($job->salary_min !== null || $job->salary_max !== null){{ $job->currency }} {{ $job->salary_min !== null ? number_format((float)$job->salary_min, 0) : '—' }}–{{ $job->salary_max !== null ? number_format((float)$job->salary_max, 0) : '—' }}<span class="company-name">{{ $job->pay_period->label() }}</span>@else<span class="muted">{{ __('jobs.not_listed') }}</span>@endif</td><td><span class="rank-score score-{{ $job->desirability ?? 'none' }}">{{ $job->desirability ?? '—' }}</span></td><td><span class="rank-score secondary score-{{ $job->skill_match ?? 'none' }}">{{ $job->skill_match ?? '—' }}</span></td><td>{{ $job->follow_up_at?->format('M j, Y') ?? '—' }}</td></tr>
+                    <tr wire:key="row-{{ $job->id }}"><td><input type="checkbox" wire:model.live="selected" value="{{ $job->id }}" aria-label="{{ __('jobs.bulk_select', ['company' => $job->company]) }}"></td><td><div class="flex items-baseline gap-3"><a class="role-link" href="/opportunities/{{ $job->id }}" wire:navigate>{{ $job->title ?: __('jobs.untitled_role') }}</a>@if($job->application_url)<a href="{{ $job->application_url }}" target="_blank" rel="noopener noreferrer" title="{{ __('jobs.open_application') }}" aria-label="{{ __('jobs.open_application_for', ['company' => $job->company]) }}">↗</a>@endif</div><span class="company-name company-lg">{{ $job->company }}@if($job->archived_at) · {{ __('jobs.archived') }}@endif</span></td><td><select class="status-select status-{{ $job->status->value }}" aria-label="{{ __('jobs.status_for', ['company' => $job->company]) }}" wire:change="changeStatus({{ $job->id }}, $event.target.value)">@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}" @selected($job->status === $option)>{{ $option->label() }}</option>@endforeach</select></td><td>{{ $job->location ?: '—' }}<span class="company-name">{{ $job->work_arrangement->label() }}</span></td><td class="salary">@if($job->salary_min !== null || $job->salary_max !== null){{ $job->currency }} {{ $job->salary_min !== null ? number_format((float)$job->salary_min, 0) : '—' }}–{{ $job->salary_max !== null ? number_format((float)$job->salary_max, 0) : '—' }}<span class="company-name">{{ $job->pay_period->label() }}</span>@else<span class="muted">{{ __('jobs.not_listed') }}</span>@endif</td><td><span class="rank-score score-{{ $job->desirability ?? 'none' }}">{{ $job->desirability ?? '—' }}</span></td><td><span class="rank-score secondary score-{{ $job->skill_match ?? 'none' }}">{{ $job->skill_match ?? '—' }}</span></td><td>{{ $job->follow_up_at?->format('M j, Y') ?? '—' }}</td></tr>
                 @empty
-                    <tr><td colspan="7"><div class="table-empty"><h3>{{ __('jobs.pipeline_empty_title') }}</h3><p>{{ __('jobs.pipeline_empty') }}</p></div></td></tr>
+                    <tr><td colspan="8"><div class="table-empty"><h3>{{ __('jobs.pipeline_empty_title') }}</h3><p>{{ __('jobs.pipeline_empty') }}</p></div></td></tr>
                 @endforelse
             </tbody></table></div>
         @endif

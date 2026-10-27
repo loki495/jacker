@@ -79,3 +79,5 @@ html.dark .link-failed{background:#321414;color:#aa6e73}
 html.dark .ai-note{border-color:#2f4466;border-left-color:#6a9be0;background:#14202f;color:#b9cdea}
 html.dark .ai-items li{border-bottom-color:#2a3d5a}html.dark .ai-items li::marker{color:#6a9be0}
 html.dark .status-contacted{background:#0b3138;color:#62c6d3}
+
+html.dark .bc-company{color:#d3deea}html.dark .bc-link{color:#77b2f6}html.dark .bc-title{color:#9aa5b1}html.dark .bc-meta{border-top-color:#2c3948}html.dark .bc-meta dd{color:#c5d2e0}
