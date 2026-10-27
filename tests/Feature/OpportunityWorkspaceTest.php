@@ -144,3 +144,10 @@ it('filters the pipeline from the summary cards', function (): void {
         ->call('showMetric', 'total')->assertSet('status', '')->assertSet('due', false)->assertSee('Rejected Co')->assertSee('Offer Co')->assertDontSee('Archived Offer Co');
     Livewire::test('pages::home')->call('showMetric', 'bogus')->assertStatus(422);
 });
+
+it('colours score badges from red at 1 to green at 5 and leaves unscored plain', function (): void {
+    $job = Opportunity::factory()->create(['desirability' => 1, 'skill_match' => 5]);
+    Opportunity::factory()->create(['desirability' => null, 'skill_match' => null]);
+    Livewire::test('pages::home')->assertSeeHtml('score-1')->assertSeeHtml('score-5')->assertSeeHtml('score-none');
+    $this->get('/opportunities/'.$job->id)->assertOk()->assertSee('score-1', false)->assertSee('score-5', false);
+});

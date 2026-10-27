@@ -66,3 +66,5 @@ button.metric{text-align:left;font:inherit;color:inherit;cursor:pointer}button.m
 
 
 .nav-theme{display:none}@media(max-width:600px){.nav-theme{display:block;padding:12px 14px}.theme-switch{display:none}}
+.score-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-weight:600}
+.score-1{background:#9b2226!important;color:#fff!important}.score-2{background:#b45a1a!important;color:#fff!important}.score-3{background:#a3790f!important;color:#fff!important}.score-4{background:#5f8a22!important;color:#fff!important}.score-5{background:#2e7d32!important;color:#fff!important}
