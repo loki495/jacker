@@ -3,10 +3,20 @@
 declare(strict_types=1);
 
 return [
-    'nav' => 'Grading settings',
-    'page_title' => 'Grading settings',
-    'heading' => 'Grading settings',
+    'nav' => 'Settings',
+    'page_title' => 'Settings',
+    'heading' => 'Settings',
     'intro' => 'These criteria drive AI grading. Changes apply to the next grading run; existing grades stay until a listing is graded again.',
+    'grading_title' => 'Grading criteria',
+    'profile_title' => 'Profile links',
+    'profile_intro' => 'Shown in the top bar when set. Leave a field empty to hide it.',
+    'linkedin' => 'LinkedIn profile URL',
+    'github' => 'GitHub profile URL',
+    'linkedin_short' => 'LinkedIn',
+    'github_short' => 'GitHub',
+    'profile_save' => 'Save links',
+    'profile_saved' => 'Profile links saved.',
+    'profile_invalid' => 'Enter a full https address on :host.',
     'saved' => 'Settings saved.',
     'reset_done' => 'Settings reset to the defaults.',
     'save' => 'Save settings',

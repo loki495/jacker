@@ -6,6 +6,7 @@ use App\Models\AiRequest;
 use App\Models\LinkCheck;
 use App\Models\Opportunity;
 use App\Support\Desirability;
+use App\Support\ProfileLinks;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -192,4 +193,16 @@ it('colours score badges from red at 1 to green at 5 and leaves unscored plain',
 it('tints board cards by status', function (): void {
     Opportunity::factory()->create(['status' => 'offer']);
     Livewire::test('pages::home')->set('view', 'board')->set('status', '')->assertSeeHtml('data-status="offer"');
+});
+
+it('saves optional profile links from settings and shows them in the shell', function (): void {
+    $this->get('/')->assertDontSee('linkedin.com/in/me', false);
+    Livewire::test('pages::settings')->set('linkedin', 'https://www.linkedin.com/in/me')->set('github', 'https://github.com/me')->call('saveProfile')->assertHasNoErrors();
+    $this->get('/')->assertSee('href="https://www.linkedin.com/in/me"', false)->assertSee('href="https://github.com/me"', false);
+
+    Livewire::test('pages::settings')->set('github', 'https://evil.example/me')->call('saveProfile')->assertHasErrors(['github'])
+        ->set('github', 'http://github.com/me')->call('saveProfile')->assertHasErrors(['github'])
+        ->set('github', 'https://notgithub.com/me')->call('saveProfile')->assertHasErrors(['github'])
+        ->set('linkedin', '')->set('github', '')->call('saveProfile')->assertHasNoErrors();
+    expect(ProfileLinks::all())->toBe([]);
 });

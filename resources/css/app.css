@@ -75,3 +75,5 @@ button.metric{text-align:left;font:inherit;color:inherit;cursor:pointer}button.m
 .score-1{background:#9b2226!important;color:#fff!important}.score-2{background:#b45a1a!important;color:#fff!important}.score-3{background:#a3790f!important;color:#fff!important}.score-4{background:#5f8a22!important;color:#fff!important}.score-5{background:#2e7d32!important;color:#fff!important}
 
 .board-card[data-status=saved]{background:#f6f7f9}.board-card[data-status=preparing]{background:#fdf7ea}.board-card[data-status=contacted]{background:#f3eefa}.board-card[data-status=applied]{background:#eef4fb}.board-card[data-status=screening]{background:#f1eef9}.board-card[data-status=interviewing]{background:#eeeafa}.board-card[data-status=offer]{background:#eaf6ee}.board-card[data-status=rejected]{background:#f8eeee}.board-card[data-status=withdrawn]{background:#f6f0ee}.board-card[data-status=closed]{background:#f1f1f2}
+
+.profile-links{display:flex;gap:14px}.profile-links a{color:#175a9e}.profile-links:empty{display:none}
