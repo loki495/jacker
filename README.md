@@ -1,5 +1,7 @@
 # Jacker
 
+[![CI](https://github.com/loki495/jacker/actions/workflows/ci.yml/badge.svg)](https://github.com/loki495/jacker/actions/workflows/ci.yml)
+
 A private, single-user job application tracker built with Laravel 13, Livewire 4 single-file class components, free Flux UI, Tailwind CSS 4, and SQLite.
 
 ## Your workspace
@@ -89,6 +91,8 @@ docker exec --user www-data jacker-app ./vendor/bin/phpstan analyse --memory-lim
 docker exec --user www-data jacker-app ./vendor/bin/rector process --dry-run
 docker exec --user www-data jacker-app ./vendor/bin/pest
 ```
+
+Coverage (pcov is installed but off by default): `composer coverage` runs Pest with `-d pcov.enabled=1 --coverage --min=93`; the floor is today's measured 93.4% of `app/` and CI enforces the same number, so raise it as coverage grows. Pushes to `main` and pull requests run the same checks in GitHub Actions (`.github/workflows/ci.yml`: build assets, Pint, PHPStan, Rector dry-run, `composer audit`, Pest with coverage), and Dependabot proposes weekly composer, npm and Actions updates.
 
 Composer wrappers (`composer pint`, `composer phpstan`, `composer rector`, `composer pest`) call the same `docker exec jacker-app` commands if host Composer is available. Composer lifecycle hooks run PHP directly in the current environment, so ordinary installs inside Docker do not require Docker-in-Docker. Rector is review-only; inspect proposed changes and edit manually.
 

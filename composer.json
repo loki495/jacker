@@ -59,7 +59,8 @@
         "test": "@pest",
         "pint": "docker exec --user www-data jacker-app ./vendor/bin/pint",
         "phpstan": "docker exec --user www-data jacker-app ./vendor/bin/phpstan analyse --memory-limit=1G",
-        "rector": "docker exec --user www-data jacker-app ./vendor/bin/rector process --dry-run"
+        "rector": "docker exec --user www-data jacker-app ./vendor/bin/rector process --dry-run",
+        "coverage": "docker exec --user www-data jacker-app php -d pcov.enabled=1 ./vendor/bin/pest --coverage --min=93"
     },
     "extra": {
         "laravel": {
