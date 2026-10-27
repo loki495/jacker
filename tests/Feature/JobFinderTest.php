@@ -234,3 +234,13 @@ it('is never scheduled', function (): void {
 
     expect($commands->filter(fn (string $name): bool => str_contains(strtolower($name), 'scrap')))->toBeEmpty();
 });
+
+it('filters the found listings by source and ignores an unknown source', function (): void {
+    FoundJob::query()->create(['source' => 'himalayas', 'url' => 'https://x.test/h', 'normalized_url' => 'https://x.test/h', 'title' => 'From Himalayas', 'company' => 'A']);
+    FoundJob::query()->create(['source' => 'wellfound', 'url' => 'https://x.test/w', 'normalized_url' => 'https://x.test/w', 'title' => 'From Wellfound', 'company' => 'B']);
+
+    Livewire::test('pages::job-finder')->set('source', 'wellfound')
+        ->assertSee('From Wellfound')->assertDontSee('From Himalayas');
+    Livewire::withQueryParams(['source' => 'nope'])->test('pages::job-finder')
+        ->assertSee('From Wellfound')->assertSee('From Himalayas');
+});

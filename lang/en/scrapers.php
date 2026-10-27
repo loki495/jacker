@@ -21,6 +21,7 @@ return [
     'clear_runs' => 'Clear finished runs',
     'listings' => 'Found listings',
     'filter_all' => 'All',
+    'filter_all_sources' => 'All sources',
     'col_job' => 'Job',
     'col_pay' => 'Pay',
     'col_posted' => 'Posted',

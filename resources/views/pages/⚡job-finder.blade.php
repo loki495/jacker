@@ -29,6 +29,9 @@ new #[Layout('layouts.app')] class extends Component
     #[Url]
     public string $sort = 'posted';
 
+    #[Url]
+    public string $source = 'all';
+
     public function run(string $source, StartScrapeRuns $start): void
     {
         $count = $start->handle($source === 'all' ? array_keys((array) config('scrapers.sources')) : [$source]);
@@ -92,6 +95,12 @@ new #[Layout('layouts.app')] class extends Component
         $this->resetPage();
     }
 
+    public function updatedSource(): void
+    {
+        $this->selected = [];
+        $this->resetPage();
+    }
+
     #[Computed]
     public function busy(): bool
     {
@@ -109,6 +118,7 @@ new #[Layout('layouts.app')] class extends Component
     {
         return FoundJob::query()
             ->when($this->filter !== 'all', fn ($query) => $query->where('status', $this->filter))
+            ->when(array_key_exists($this->source, (array) config('scrapers.sources')), fn ($query) => $query->where('source', $this->source))
             ->tap(fn ($query) => match ($this->sort) {
                 'pay' => $query->orderByRaw(PaySort::orderBy()),
                 'location' => $query->orderByRaw(LocationSort::usFirst()),
@@ -122,7 +132,7 @@ new #[Layout('layouts.app')] class extends Component
 <div wire:poll.3s>
     <div class="page-heading"><div><div class="eyebrow">{{ __('jobs.workspace') }}</div><h1>{{ __('scrapers.title') }}</h1><p>{{ __('scrapers.intro', ['pages' => config('scrapers.max_pages'), 'spacing' => config('scrapers.spacing')]) }}</p></div><flux:button wire:click="run('all')" variant="primary" icon="arrow-path" :disabled="$this->busy">{{ __('scrapers.run_all') }}</flux:button></div>
     @if($message)<div class="success-message" role="status">{{ $message }}</div>@endif
-    <section class="panel detail-panel"><div class="form-actions">
+    <section class="panel detail-panel"><div class="flex flex-wrap gap-2">
         @foreach(array_keys(config('scrapers.sources')) as $source)
             <flux:button size="sm" wire:click="run('{{ $source }}')" :disabled="$this->busy">{{ __('scrapers.run_one', ['source' => __('scrapers.source_'.$source)]) }}</flux:button>
         @endforeach
@@ -135,7 +145,7 @@ new #[Layout('layouts.app')] class extends Component
         @endforelse
     </tbody></table></div></section>
     <section class="pipeline panel mt-4">
-        <div class="pipeline-header"><div><h2>{{ __('scrapers.listings') }}</h2></div><div class="flex items-center justify-end gap-2"><flux:button size="sm" variant="primary" wire:click="addSelected" :disabled="$selected === []">{{ __('scrapers.add_selected') }}@if($selected !== []) ({{ count($selected) }})@endif</flux:button> <flux:select wire:model.live="filter" :aria-label="__('scrapers.listings')"><option value="new">{{ __('scrapers.FoundJobStatus.new') }}</option><option value="dismissed">{{ __('scrapers.FoundJobStatus.dismissed') }}</option><option value="accepted">{{ __('scrapers.FoundJobStatus.accepted') }}</option><option value="all">{{ __('scrapers.filter_all') }}</option></flux:select> <flux:select wire:model.live="sort" :aria-label="__('scrapers.sort')">@foreach(['posted', 'pay', 'location'] as $option)<option value="{{ $option }}">{{ __('scrapers.sort_'.$option) }}</option>@endforeach</flux:select></div></div>
+        <div class="pipeline-header"><div><h2>{{ __('scrapers.listings') }}</h2></div><div class="flex items-center justify-end gap-2"><flux:button size="sm" variant="primary" wire:click="addSelected" :disabled="$selected === []">{{ __('scrapers.add_selected') }}@if($selected !== []) ({{ count($selected) }})@endif</flux:button> <flux:select wire:model.live="filter" :aria-label="__('scrapers.listings')"><option value="new">{{ __('scrapers.FoundJobStatus.new') }}</option><option value="dismissed">{{ __('scrapers.FoundJobStatus.dismissed') }}</option><option value="accepted">{{ __('scrapers.FoundJobStatus.accepted') }}</option><option value="all">{{ __('scrapers.filter_all') }}</option></flux:select> <flux:select wire:model.live="source" :aria-label="__('scrapers.col_source')"><option value="all">{{ __('scrapers.filter_all_sources') }}</option>@foreach(array_keys(config('scrapers.sources')) as $option)<option value="{{ $option }}">{{ __('scrapers.source_'.$option) }}</option>@endforeach</flux:select> <flux:select wire:model.live="sort" :aria-label="__('scrapers.sort')">@foreach(['posted', 'pay', 'location'] as $option)<option value="{{ $option }}">{{ __('scrapers.sort_'.$option) }}</option>@endforeach</flux:select></div></div>
         <div class="table-scroll"><table><thead><tr><th></th><th>{{ __('scrapers.col_job') }}</th><th>{{ __('scrapers.col_source') }}</th><th>{{ __('jobs.location') }}</th><th>{{ __('scrapers.col_pay') }}</th><th>{{ __('scrapers.col_posted') }}</th><th></th></tr></thead><tbody>
         @forelse($this->listings as $found)
             <tr wire:key="found-{{ $found->id }}"><td>@if($found->status === App\Enums\FoundJobStatus::New)<input type="checkbox" wire:model.live="selected" value="{{ $found->id }}" aria-label="{{ __('scrapers.select_row') }}">@endif</td><td><a class="role-link" href="{{ $found->url }}" target="_blank" rel="noopener noreferrer">{{ $found->company ?? __('scrapers.unknown_company') }}<span class="company-name">{{ $found->title }}</span></a></td><td>{{ __('scrapers.source_'.$found->source) }}</td><td>{{ \Illuminate\Support\Str::limit((string) $found->location, 60) }}</td><td>@if($found->salary_min){{ number_format((float) $found->salary_min) }}@if($found->salary_max) – {{ number_format((float) $found->salary_max) }}@endif {{ $found->currency }}@else{{ $found->salary_notes }}@endif</td><td>{{ $found->posted_at?->format('M j') }}</td><td>
