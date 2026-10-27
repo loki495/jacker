@@ -12,19 +12,8 @@ The last trusted proxy must supply the client-facing HTTPS scheme and port, incl
 
 SQLite defaults to `database/database.sqlite`. Back up the database together with `.env` and persistent uploads using a consistent SQLite backup process; test restores before relying on backups. Do not commit the database, secrets, or personal job data.
 
-The default order is skill match plus desirability, highest first.
-
 On phones the sidebar collapses into a slim bar with a menu button. The top bar has a light, dark and match-system theme switch; the choice is remembered in the browser. The dark styles live in `resources/css/dark.css`, which overrides the light colours in `resources/css/app.css`: add a matching rule there when you add a coloured rule to `app.css`.
 
-
-
 Set `APP_TIMEZONE` to your local IANA timezone for status-history timestamps and daily follow-up boundaries. The portable default is `UTC`; tests explicitly use UTC and separately exercise timezone conversions.
-
-
-
-
-
-
-
 
 Mail uses the log driver. Queues use the database driver and the `queue` compose service (`php artisan queue:work`) processes link checks; with `QUEUE_CONNECTION=sync` they run inline instead. Link checks are the only outbound requests, to the job pages you give or save. No notifications are configured.
