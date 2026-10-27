@@ -188,3 +188,8 @@ it('colours score badges from red at 1 to green at 5 and leaves unscored plain',
     Livewire::test('pages::home')->assertSeeHtml('score-1')->assertSeeHtml('score-5')->assertSeeHtml('score-none');
     $this->get('/opportunities/'.$job->id)->assertOk()->assertSee('score-1', false)->assertSee('score-5', false);
 });
+
+it('tints board cards by status', function (): void {
+    Opportunity::factory()->create(['status' => 'offer']);
+    Livewire::test('pages::home')->set('view', 'board')->set('status', '')->assertSeeHtml('data-status="offer"');
+});

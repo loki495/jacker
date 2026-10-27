@@ -195,7 +195,7 @@ new #[Layout('layouts.app')] class extends Component
             <div class="stage-filter px-6 pb-4"><flux:select wire:model.live="status" :label="__('jobs.stage')"><option value="open_unapplied">{{ __('jobs.status_open_unapplied') }}</option><option value="open">{{ __('jobs.status_open') }}</option><option value="recruiter">{{ __('jobs.status_recruiter') }}</option><option value="in_progress">{{ __('jobs.status_in_progress') }}</option><option value="">{{ __('jobs.all_statuses') }}</option>@foreach(App\Enums\OpportunityStatus::cases() as $option)<option value="{{ $option->value }}">{{ $option->label() }}</option>@endforeach</flux:select></div>
             <div class="board">
                 @forelse($this->opportunities as $job)
-                    <article class="board-card" wire:key="board-{{ $job->id }}">
+                    <article class="board-card" data-status="{{ $job->status->value }}" wire:key="board-{{ $job->id }}">
                             <header class="bc-head"><input type="checkbox" wire:model.live="selected" value="{{ $job->id }}" aria-label="{{ __('jobs.bulk_select', ['company' => $job->company]) }}"><a href="/opportunities/{{ $job->id }}" wire:navigate class="bc-company">{{ $job->company }}</a>@if($job->application_url)<a href="{{ $job->application_url }}" target="_blank" rel="noopener noreferrer" class="bc-link" title="{{ __('jobs.open_application') }}" aria-label="{{ __('jobs.open_application_for', ['company' => $job->company]) }}">↗</a>@endif</header>
                             <a href="/opportunities/{{ $job->id }}" wire:navigate class="bc-title">{{ $job->title ?: __('jobs.untitled_role') }}</a>
                             <dl class="bc-meta">

@@ -81,3 +81,5 @@ html.dark .ai-items li{border-bottom-color:#2a3d5a}html.dark .ai-items li::marke
 html.dark .status-contacted{background:#0b3138;color:#62c6d3}
 
 html.dark .bc-company{color:#d3deea}html.dark .bc-link{color:#77b2f6}html.dark .bc-title{color:#9aa5b1}html.dark .bc-meta{border-top-color:#2c3948}html.dark .bc-meta dd{color:#c5d2e0}
+
+html.dark .board-card[data-status=saved]{background:#101923}html.dark .board-card[data-status=preparing]{background:#1c1a12}html.dark .board-card[data-status=contacted]{background:#19162a}html.dark .board-card[data-status=applied]{background:#0f1b2b}html.dark .board-card[data-status=screening]{background:#171629}html.dark .board-card[data-status=interviewing]{background:#171528}html.dark .board-card[data-status=offer]{background:#0f211a}html.dark .board-card[data-status=rejected]{background:#241518}html.dark .board-card[data-status=withdrawn]{background:#211a17}html.dark .board-card[data-status=closed]{background:#14181d}
