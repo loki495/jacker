@@ -15,5 +15,6 @@ Route::livewire('/questions', 'pages::questions')->name('questions');
 Route::livewire('/link-checks', 'pages::link-checks')->name('link-checks');
 Route::livewire('/job-finder', 'pages::job-finder')->name('job-finder');
 Route::livewire('/scoring', 'pages::scoring')->name('scoring');
+Route::livewire('/settings', 'pages::settings')->name('settings');
 Route::livewire('/import', 'pages::import')->name('import');
 Route::get('/export', CsvExportController::class)->name('export');
