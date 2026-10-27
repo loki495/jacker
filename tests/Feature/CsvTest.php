@@ -293,3 +293,8 @@ it('normalizes loose work arrangement and employment type values', function () {
         ->and($data('employment_type', 'full_time_or_unclear'))->toBe('full_time')
         ->and($data('employment_type', 'unclear'))->toBe('unspecified');
 });
+
+it('offers the export on the import page and not in the sidebar', function (): void {
+    Livewire::test('pages::import')->assertSee('Import / Export')->assertSeeHtml('href="/export"');
+    $this->get('/')->assertDontSee('Export CSV')->assertSee('Import / Export');
+});

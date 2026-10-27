@@ -16,7 +16,7 @@ Each opportunity can hold:
 
 Only the company is required. “Already applied” can be true with no known application date. Changing status never invents a historical application date. Status changes are recorded in the opportunity history. Follow-ups are shown in the workspace; the app sends no reminders or messages.
 
-Use **Import** to upload, map columns, inspect validation errors and duplicate candidates, then explicitly save reviewed rows. Unknown columns are preserved. Existing records are never overwritten by an import. **Export CSV** downloads all opportunities, including archived records. See [CSV behavior and limits](docs/csv.md) for supported formats, duplicate rules and spreadsheet safety.
+Use **Import** to upload, map columns, inspect validation errors and duplicate candidates, then explicitly save reviewed rows. Unknown columns are preserved. Existing records are never overwritten by an import. **Export CSV** (the same page, titled Import / Export) downloads all opportunities, including archived records. See [CSV behavior and limits](docs/csv.md) for supported formats, duplicate rules and spreadsheet safety.
 
 ## Local setup
 

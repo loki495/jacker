@@ -25,7 +25,6 @@
                 <a href="/scoring" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('scoring')])><span>★</span>{{ __('jobs.nav_scoring') }}</a>
                 <a href="/questions" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('questions')])><span>?</span>{{ __('questions.nav') }}</a>
                 <a href="/settings" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('settings')])><span>⚙</span>{{ __('settings.nav') }}</a>
-                <a href="/export" class="nav-link"><span>↧</span>{{ __('jobs.export') }}</a>
                 <div class="nav-theme"><flux:radio.group x-data variant="segmented" size="sm" x-model="$flux.appearance" :aria-label="__('jobs.appearance')"><flux:radio value="light" icon="sun" :aria-label="__('jobs.appearance_light')" /><flux:radio value="dark" icon="moon" :aria-label="__('jobs.appearance_dark')" /><flux:radio value="system" icon="computer-desktop" :aria-label="__('jobs.appearance_system')" /></flux:radio.group></div>
             </nav>
             <div class="sidebar-note"><span class="status-dot"></span>{{ __('jobs.private_workspace') }}<p>{{ __('jobs.manual_control') }}</p></div>

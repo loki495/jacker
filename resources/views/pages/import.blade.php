@@ -309,6 +309,12 @@ new #[Layout('layouts.app')] class extends Component
     @endif
 
     <section class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+        <flux:heading size="lg" level="2">{{ __('csv.export_title') }}</flux:heading>
+        <flux:text>{{ __('csv.export_hint') }}</flux:text>
+        <flux:button href="/export" icon="arrow-down-tray">{{ __('csv.export_button') }}</flux:button>
+    </section>
+
+    <section class="space-y-4 rounded-2xl border border-zinc-200 p-5">
         <flux:heading size="lg" level="2">{{ __('jobs.add_from_urls') }}</flux:heading>
         <flux:text>{{ __('jobs.add_from_urls_hint') }}</flux:text>
         <form wire:submit="addUrls" class="space-y-4">

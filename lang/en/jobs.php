@@ -14,7 +14,7 @@ return [
     'menu' => 'Menu',
     'overview' => 'Overview',
     'add_job' => 'Add opportunity',
-    'import' => 'Import',
+    'import' => 'Import / Export',
     'export' => 'Export CSV',
     'private_workspace' => 'Your private workspace',
     'manual_control' => 'A little clarity for your next chapter.',

@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 return [
-    'page_title' => 'Import opportunities',
-    'heading' => 'Bring your search together',
+    'page_title' => 'Import / Export',
+    'export_title' => 'Export',
+    'export_hint' => 'Download every opportunity, archived ones included, as a CSV you can edit and import again.',
+    'export_button' => 'Export CSV',
+    'heading' => 'Import / Export',
     'intro' => 'Import a CSV, match its columns, then review before saving, or add jobs from links, a saved page or pasted text. Unmapped columns stay with each opportunity.',
     'open_workspace' => 'Open workspace',
     'file' => 'File',
