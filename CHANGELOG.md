@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Dependencies: patch Symfony Mime for [CVE-2026-45070](https://github.com/symfony/symfony/security/advisories/GHSA-vqc8-7275-q272).
+
 - Optional Laravel AI provider processing for extraction, grading and letter suggestions, with per-feature Settings and the host bridge as default.
 - Experimental opt-in similarities for jobs and past letters using SQLite vectors and local ranking.
 - Portfolio documentation, architecture guide and screenshots with fake demo data.
