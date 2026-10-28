@@ -77,3 +77,7 @@ button.metric{text-align:left;font:inherit;color:inherit;cursor:pointer}button.m
 .board-card[data-status=saved]{background:#f6f7f9}.board-card[data-status=preparing]{background:#fdf7ea}.board-card[data-status=contacted]{background:#f3eefa}.board-card[data-status=applied]{background:#eef4fb}.board-card[data-status=screening]{background:#f1eef9}.board-card[data-status=interviewing]{background:#eeeafa}.board-card[data-status=offer]{background:#eaf6ee}.board-card[data-status=rejected]{background:#f8eeee}.board-card[data-status=withdrawn]{background:#f6f0ee}.board-card[data-status=closed]{background:#f1f1f2}
 
 .profile-links{display:flex;gap:14px}.profile-links a{color:#175a9e}.profile-links:empty{display:none}
+
+.found-listings-filters{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:0 24px 20px}.found-listings-filters>*{min-width:0}@media(min-width:700px){.found-listings-filters{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:600px){.found-listings-filters{padding-inline:16px}}
+
+.detail-main{min-width:0}

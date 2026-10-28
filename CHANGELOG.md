@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Mobile: stack job finder filters and prevent overflow in detail panels and queue actions.
+
 - Docs: README split into `docs/`, contributing and security files, demo seeder.
 - Tests: board stage and selection, queue polling, shell markup, import scroll, CSV header aliases, cover letter commands; coverage floor 94%.
 - Theme font now matches the declared Instrument Sans.

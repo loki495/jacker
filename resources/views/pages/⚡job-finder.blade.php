@@ -145,7 +145,29 @@ new #[Layout('layouts.app')] class extends Component
         @endforelse
     </tbody></table></div></section>
     <section class="pipeline panel mt-4">
-        <div class="pipeline-header"><div><h2>{{ __('scrapers.listings') }}</h2></div><div class="flex items-center justify-end gap-2"><flux:button size="sm" variant="primary" wire:click="addSelected" :disabled="$selected === []">{{ __('scrapers.add_selected') }}@if($selected !== []) ({{ count($selected) }})@endif</flux:button> <flux:select wire:model.live="filter" :aria-label="__('scrapers.listings')"><option value="new">{{ __('scrapers.FoundJobStatus.new') }}</option><option value="dismissed">{{ __('scrapers.FoundJobStatus.dismissed') }}</option><option value="accepted">{{ __('scrapers.FoundJobStatus.accepted') }}</option><option value="all">{{ __('scrapers.filter_all') }}</option></flux:select> <flux:select wire:model.live="source" :aria-label="__('scrapers.col_source')"><option value="all">{{ __('scrapers.filter_all_sources') }}</option>@foreach(array_keys(config('scrapers.sources')) as $option)<option value="{{ $option }}">{{ __('scrapers.source_'.$option) }}</option>@endforeach</flux:select> <flux:select wire:model.live="sort" :aria-label="__('scrapers.sort')">@foreach(['posted', 'pay', 'location'] as $option)<option value="{{ $option }}">{{ __('scrapers.sort_'.$option) }}</option>@endforeach</flux:select></div></div>
+        <div class="pipeline-header flex-wrap">
+            <div><h2>{{ __('scrapers.listings') }}</h2></div>
+            <flux:button size="sm" variant="primary" wire:click="addSelected" :disabled="$selected === []">{{ __('scrapers.add_selected') }}@if($selected !== []) ({{ count($selected) }})@endif</flux:button>
+        </div>
+        <div class="found-listings-filters">
+            <flux:select wire:model.live="filter" :aria-label="__('scrapers.listings')">
+                <option value="new">{{ __('scrapers.FoundJobStatus.new') }}</option>
+                <option value="dismissed">{{ __('scrapers.FoundJobStatus.dismissed') }}</option>
+                <option value="accepted">{{ __('scrapers.FoundJobStatus.accepted') }}</option>
+                <option value="all">{{ __('scrapers.filter_all') }}</option>
+            </flux:select>
+            <flux:select wire:model.live="source" :aria-label="__('scrapers.col_source')">
+                <option value="all">{{ __('scrapers.filter_all_sources') }}</option>
+                @foreach(array_keys(config('scrapers.sources')) as $option)
+                    <option value="{{ $option }}">{{ __('scrapers.source_'.$option) }}</option>
+                @endforeach
+            </flux:select>
+            <flux:select wire:model.live="sort" :aria-label="__('scrapers.sort')">
+                @foreach(['posted', 'pay', 'location'] as $option)
+                    <option value="{{ $option }}">{{ __('scrapers.sort_'.$option) }}</option>
+                @endforeach
+            </flux:select>
+        </div>
         <div class="table-scroll"><table><thead><tr><th></th><th>{{ __('scrapers.col_job') }}</th><th>{{ __('scrapers.col_source') }}</th><th>{{ __('jobs.location') }}</th><th>{{ __('scrapers.col_pay') }}</th><th>{{ __('scrapers.col_posted') }}</th><th></th></tr></thead><tbody>
         @forelse($this->listings as $found)
             <tr wire:key="found-{{ $found->id }}"><td>@if($found->status === App\Enums\FoundJobStatus::New)<input type="checkbox" wire:model.live="selected" value="{{ $found->id }}" aria-label="{{ __('scrapers.select_row') }}">@endif</td><td><a class="role-link" href="{{ $found->url }}" target="_blank" rel="noopener noreferrer">{{ $found->company ?? __('scrapers.unknown_company') }}<span class="company-name">{{ $found->title }}</span></a></td><td>{{ __('scrapers.source_'.$found->source) }}</td><td>{{ \Illuminate\Support\Str::limit((string) $found->location, 60) }}</td><td>@if($found->salary_min){{ number_format((float) $found->salary_min) }}@if($found->salary_max) – {{ number_format((float) $found->salary_max) }}@endif {{ $found->currency }}@else{{ $found->salary_notes }}@endif</td><td>{{ $found->posted_at?->format('M j') }}</td><td>
