@@ -135,6 +135,54 @@ it('reads Built In job cards without a keyword filter, since the site searches',
         ->description->toBe('Manage integrations.')->requirements->toBe('Top skills: PHP, Laravel')->notes->toBe('Level: Senior level');
 });
 
+it('reads LaraJobs cards without a keyword filter, keeps the US and hybrid roles and drops the ones restricted to another country', function (): void {
+    $this->travelTo('2026-10-28 12:00:00');
+    $card = fn (string $id, string $company, string $title, string $summary, string $location, string $age, array $tags = [], string $apply = ''): string => '<a data-url="'.$apply.'" href="/job/'.$id.'" class="job-link group block mb-6 px-6 md:px-0">'
+        .'<div><img src="/logos/x.png" alt="logo"><div><p class="text-sm text-gray-500 truncate">'.$company.'</p><p class="text-lg font-bold text-gray-900">'.$title.'</p><p class="text-sm text-gray-500 truncate">'
+        // The site indents these lines, so the type and the pay sit on separate source lines.
+        .implode("\n                    - ", explode(' - ', $summary, 2)).'</p></div>'
+        .'<div><div class="flex items-center"><svg viewBox="0 0 20 20"><path d="M4 9h2"/></svg>'."\n   ".$location."\n   ".'</div><div class="flex items-center"><svg viewBox="0 0 24 24"><path d="M4 9h2"/></svg>'."\n   ".$age."\n   ".'</div></div>'
+        .implode('', array_map(fn (string $tag): string => '<div class="tag font-bold text-sm text-accent">'."\n   ".$tag."\n  ".'</div>', $tags))
+        .'</div></div></a>';
+    $html = $card('4001', 'Acme', 'Senior Software Engineer', 'Full Time - $160,000.00 - $180,000.00', 'Remote/USA', '2d', ['Full Time', 'Laravel', 'MySQL'], 'https://apply.workable.com/acme/j/ABC')
+        .$card('4002', 'Trybe', 'Senior Laravel Developer', 'Full Time - £70,000 - £90,000', 'London, UK (Hybrid)', '4d')
+        .$card('4003', 'Globex', 'PHP Developer', 'Contractor', 'Remote', '3h')
+        .$card('4004', 'Euro', 'PHP Engineer EU', 'Full Time', 'Remote (Europe/Berlin Time Zone)', '1mo')
+        .$card('4005', 'Small', 'Junior PHP Developer', 'Full Time', 'Remote/USA', '1w')
+        .$card('4006', 'Old', 'Web Developer', 'Full Time - Up to €100k', 'Remote', '1y')
+        .$card('4007', 'Campus', 'Web Application Developer', 'Full Time', 'Storrs, Connecticut', 'soon')
+        .'<a href="/jobs" class="job-link">All jobs</a>'
+        // A card that lost its title paragraph is no use in the review list.
+        .'<a href="/job/4008" class="job-link"><div><p>Only a company</p></div></a>';
+    Http::fake(['larajobs.com/*' => Http::response('<html><body>'.$html.'</body></html>')]);
+
+    $run = runSource('larajobs');
+
+    expect($run->refresh())->status->toBe(LinkCheckStatus::Done)->seen->toBe(7)->added->toBe(5)->pages_done->toBe(1);
+    expect(FoundJob::query()->orderBy('id')->pluck('location', 'title')->all())->toBe([
+        'Senior Software Engineer' => 'USA', 'Senior Laravel Developer' => 'London, UK (Hybrid)', 'PHP Developer' => 'Worldwide',
+        'Web Developer' => 'Worldwide', 'Web Application Developer' => 'Storrs, Connecticut',
+    ]);
+    $us = FoundJob::query()->where('company', 'Acme')->sole();
+    expect($us)->url->toBe('https://larajobs.com/job/4001')->work_arrangement->toBe('remote')->employment_type->toBe('full_time')
+        ->currency->toBe('USD')->pay_period->toBe('year')->salary_notes->toBe('$160,000.00 - $180,000.00')
+        ->notes->toBe("Tags: Laravel, MySQL\nApply at: https://apply.workable.com/acme/j/ABC");
+    expect((float) $us->salary_min)->toBe(160000.0)->and((float) $us->salary_max)->toBe(180000.0)
+        ->and($us->posted_at?->toDateTimeString())->toBe('2026-10-26 12:00:00');
+
+    $uk = FoundJob::query()->where('company', 'Trybe')->sole();
+    expect($uk)->work_arrangement->toBe('hybrid')->currency->toBeNull()->notes->toBeNull()->salary_notes->toBe('£70,000 - £90,000')
+        ->and($uk->posted_at?->toDateTimeString())->toBe('2026-10-24 12:00:00');
+
+    $contract = FoundJob::query()->where('company', 'Globex')->sole();
+    expect($contract)->employment_type->toBe('contract');
+    expect($contract->posted_at?->toDateTimeString())->toBe('2026-10-28 09:00:00');
+
+    $office = FoundJob::query()->where('company', 'Campus')->sole();
+    expect($office)->work_arrangement->toBeNull()->posted_at->toBeNull();
+    expect(FoundJob::query()->where('company', 'Old')->sole()->salary_notes)->toBe('Up to €100k');
+});
+
 it('stops at the first refusal instead of trying the remaining pages', function (): void {
     config(['scrapers.max_pages' => 3]);
     Http::fake(['builtin.com/*' => Http::response('blocked', 403)]);

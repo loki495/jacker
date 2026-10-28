@@ -5,7 +5,7 @@ declare(strict_types=1);
 return [
     'title' => 'Job finder',
     'nav' => 'Job finder',
-    'intro' => 'Pulls remote PHP/Laravel listings from a few job sites into a review list. Runs start only when you press a button, fetch at most :pages pages per site with :spacing seconds between requests, and never run on a schedule.',
+    'intro' => 'Pulls PHP/Laravel listings from a few job sites into a review list. Runs start only when you press a button, fetch at most :pages pages per site with :spacing seconds between requests, and never run on a schedule.',
     'run_all' => 'Run all sources',
     'run_one' => 'Run :source',
     'queued' => ':count run(s) queued.',
@@ -49,5 +49,6 @@ return [
     'source_weworkremotely' => 'We Work Remotely',
     'source_wellfound' => 'Wellfound',
     'source_builtin' => 'Built In',
+    'source_larajobs' => 'LaraJobs',
     'FoundJobStatus' => ['new' => 'New', 'accepted' => 'Added', 'dismissed' => 'Dismissed'],
 ];

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 use App\Services\Scrapers\BuiltIn;
 use App\Services\Scrapers\Himalayas;
+use App\Services\Scrapers\LaraJobs;
 use App\Services\Scrapers\Wellfound;
 use App\Services\Scrapers\WeWorkRemotely;
 
@@ -33,6 +34,7 @@ return [
         'weworkremotely' => WeWorkRemotely::class,
         'wellfound' => Wellfound::class,
         'builtin' => BuiltIn::class,
+        'larajobs' => LaraJobs::class,
     ],
     'weworkremotely_feeds' => [
         'https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss',
