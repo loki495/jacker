@@ -4,33 +4,34 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Enums\AiDriver;
 use App\Enums\LinkCheckStatus;
 use App\Models\AiRequest;
 use App\Models\CoverLetter;
 use App\Models\Opportunity;
+use App\Support\AiSettings;
 use App\Support\CoverLetterSettings;
-use Illuminate\Support\Facades\DB;
 
 final class ClaimLetterRequest
 {
     private const array FIELDS = ['title', 'company', 'location', 'work_arrangement', 'employment_type', 'hours', 'remote_restrictions', 'responsibilities', 'requirements', 'benefits'];
 
     /** @return array{id: int, agent: string, model: string, thinking: string, prompt: string}|null */
-    public function handle(): ?array
+    public function handle(?int $id = null, AiDriver $driver = AiDriver::Bridge): ?array
     {
-        $request = DB::transaction(function (): ?AiRequest {
-            $request = AiRequest::query()->with('opportunity')->where('kind', AiRequest::KIND_LETTER)->where('status', LinkCheckStatus::Queued)->orderBy('id')->first();
-            $request?->update(['status' => LinkCheckStatus::Running, 'started_at' => now()]);
-
-            return $request;
-        });
+        $request = app(ClaimPendingAiRequest::class)->handle(AiRequest::KIND_LETTER, $id, $driver);
         if (! $request instanceof AiRequest) {
             return null;
         }
         $letter = CoverLetter::query()->where('opportunity_id', $request->opportunity_id)->first();
-        $ai = CoverLetterSettings::ai();
+        $ai = $driver === AiDriver::Sdk
+            ? ['agent' => (string) $request->agent, 'model' => (string) $request->model, 'thinking' => 'off']
+            : CoverLetterSettings::ai();
+        $valid = $driver === AiDriver::Sdk
+            ? AiSettings::validProviderModel($ai['agent'], $ai['model'])
+            : in_array($ai['agent'], CoverLetterSettings::AGENTS, true) && preg_match(CoverLetterSettings::MODEL_PATTERN, $ai['model']) === 1;
         if (! $letter instanceof CoverLetter || ! $request->opportunity instanceof Opportunity
-            || ! in_array($ai['agent'], CoverLetterSettings::AGENTS, true) || preg_match(CoverLetterSettings::MODEL_PATTERN, $ai['model']) !== 1) {
+            || ! $valid) {
             $request->update(['status' => LinkCheckStatus::Failed, 'message' => __('letter.request_unusable'), 'finished_at' => now()]);
 
             return null;

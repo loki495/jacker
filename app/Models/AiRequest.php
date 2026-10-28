@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\AiDriver;
 use App\Enums\LinkCheckStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $opportunity_id
  * @property string|null $mode
  * @property string $kind
+ * @property AiDriver $driver
  * @property LinkCheckStatus $status
  * @property string|null $agent
  * @property string|null $model
@@ -40,7 +42,7 @@ class AiRequest extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['status' => LinkCheckStatus::class, 'replaced' => 'array', 'started_at' => 'datetime', 'finished_at' => 'datetime'];
+        return ['driver' => AiDriver::class, 'status' => LinkCheckStatus::class, 'replaced' => 'array', 'started_at' => 'datetime', 'finished_at' => 'datetime'];
     }
 
     /** @return array<string, mixed>|null The model's JSON reply as fields, or null when it is not a JSON object. */

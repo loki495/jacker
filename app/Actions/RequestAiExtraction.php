@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Enums\AiDriver;
 use App\Enums\LinkCheckStatus;
+use App\Jobs\ProcessAiRequest;
 use App\Models\AiRequest;
 use App\Models\LinkCheck;
+use App\Support\AiSettings;
 
 final readonly class RequestAiExtraction
 {
@@ -20,15 +23,20 @@ final readonly class RequestAiExtraction
             return null;
         }
         $render = $this->render->handle($check);
-        if (! $render instanceof AiRequest && blank($check->page_text)) {
+        $renderPending = $render instanceof AiRequest || $check->aiRequests()->where('kind', AiRequest::KIND_RENDER)->whereIn('status', [LinkCheckStatus::Queued, LinkCheckStatus::Running])->exists();
+        if (! $renderPending && blank($check->page_text)) {
             return null;
         }
 
-        return AiRequest::query()->create([
+        $request = AiRequest::query()->create([
             'link_check_id' => $check->id,
             'kind' => AiRequest::KIND_EXTRACT,
-            'agent' => config('ai.agent'),
-            'model' => config('ai.model'),
+            ...AiSettings::requestAttributes('extract', (string) config('ai.agent'), (string) config('ai.model')),
         ]);
+        if ($request->driver === AiDriver::Sdk) {
+            ProcessAiRequest::dispatch($request->id)->afterCommit();
+        }
+
+        return $request;
     }
 }

@@ -2,8 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Actions\QueueJobEmbeddings;
+use App\Actions\SaveAiSettings;
+use App\Actions\SaveEmbeddingSettings;
+use App\Enums\AiDriver;
 use App\Enums\WorkArrangement;
+use App\Support\AiSettings;
 use App\Support\CoverLetterSettings;
+use App\Support\EmbeddingSettings;
 use App\Support\ProfileLinks;
 use App\Support\ScoringSettings;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +50,10 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $coverThinking = '';
 
+    public array $aiFeatures = [];
+
+    public bool $embeddingsEnabled = false;
+
     public string $message = '';
 
     public function mount(): void
@@ -54,6 +64,24 @@ new #[Layout('layouts.app')] class extends Component
     public function render()
     {
         return $this->view()->title(__('settings.page_title'));
+    }
+
+    public function saveAiSettings(SaveAiSettings $save): void
+    {
+        $save->handle($this->aiFeatures);
+        $this->message = __('settings.ai_saved');
+    }
+
+    public function saveEmbeddings(SaveEmbeddingSettings $save): void
+    {
+        $this->validate(['embeddingsEnabled' => ['boolean']]);
+        $save->handle($this->embeddingsEnabled);
+        $this->message = __('settings.embeddings_saved');
+    }
+
+    public function indexEmbeddings(QueueJobEmbeddings $queue): void
+    {
+        $this->message = __('settings.embeddings_queued', ['count' => $queue->handle()]);
     }
 
     public function saveProfile(): void
@@ -151,6 +179,10 @@ new #[Layout('layouts.app')] class extends Component
 
     private function load(): void
     {
+        $this->embeddingsEnabled = EmbeddingSettings::enabled();
+        foreach (AiSettings::FEATURES as $feature) {
+            $this->aiFeatures[$feature] = AiSettings::feature($feature);
+        }
         foreach (ProfileLinks::all() as $site => $url) {
             $this->{$site} = $url;
         }
@@ -192,9 +224,38 @@ new #[Layout('layouts.app')] class extends Component
         </div>
         <flux:button type="submit" variant="primary">{{ __('letter.contact_save') }}</flux:button>
     </form>
+    <form wire:submit="saveAiSettings" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+        <flux:heading size="lg" level="2">{{ __('settings.ai_title') }}</flux:heading>
+        <flux:text>{{ __('settings.ai_intro') }}</flux:text>
+        @foreach (AiSettings::FEATURES as $feature)
+            <fieldset class="space-y-3" wire:key="ai-{{ $feature }}">
+                <legend class="font-semibold">{{ __('settings.ai_feature_'.$feature) }}</legend>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="min-w-0">
+                        <flux:select wire:model="aiFeatures.{{ $feature }}.driver" :label="__('settings.ai_driver')">
+                            <option value="{{ AiDriver::Bridge->value }}">{{ __('settings.ai_bridge') }}</option>
+                            <option value="{{ AiDriver::Sdk->value }}">{{ __('settings.ai_sdk') }}</option>
+                        </flux:select>
+                        @error('aiFeatures.'.$feature.'.driver') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="min-w-0">
+                        <flux:select wire:model="aiFeatures.{{ $feature }}.provider" :label="__('settings.ai_provider')">
+                            @foreach (AiSettings::PROVIDERS as $provider)<option value="{{ $provider }}">{{ ucfirst($provider) }}</option>@endforeach
+                        </flux:select>
+                        @error('aiFeatures.'.$feature.'.provider') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="min-w-0">
+                        <flux:input wire:model="aiFeatures.{{ $feature }}.model" :label="__('settings.ai_model')" />
+                        @error('aiFeatures.'.$feature.'.model') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </fieldset>
+        @endforeach
+        <flux:button type="submit" variant="primary">{{ __('settings.ai_save') }}</flux:button>
+    </form>
     <form wire:submit="saveCoverAi" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
-        <flux:heading size="lg" level="2">{{ __('letter.ai_title') }}</flux:heading>
-        <flux:text>{{ __('letter.ai_intro') }}</flux:text>
+        <flux:heading size="lg" level="2">{{ __('settings.bridge_letter_title') }}</flux:heading>
+        <flux:text>{{ __('settings.bridge_letter_intro') }}</flux:text>
         <div class="grid gap-4 sm:grid-cols-3">
             <flux:select wire:model="coverAgent" :label="__('letter.agent')">@foreach (CoverLetterSettings::AGENTS as $agent)<option value="{{ $agent }}">{{ $agent }}</option>@endforeach</flux:select>
             <flux:input wire:model="coverModel" :label="__('letter.model')" />
@@ -202,6 +263,15 @@ new #[Layout('layouts.app')] class extends Component
         </div>
         @foreach (['coverAgent', 'coverModel', 'coverThinking'] as $field) @error($field) <p role="alert" class="text-red-700">{{ $message }}</p> @enderror @endforeach
         <flux:button type="submit" variant="primary">{{ __('letter.ai_save') }}</flux:button>
+    </form>
+    <form wire:submit="saveEmbeddings" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+        <flux:heading size="lg" level="2">{{ __('settings.embeddings_title') }}</flux:heading>
+        <flux:text>{{ __('settings.embeddings_intro') }}</flux:text>
+        <flux:checkbox wire:model="embeddingsEnabled" :label="__('settings.embeddings_enabled')" />
+        <div class="flex flex-wrap gap-3">
+            <flux:button type="submit" variant="primary">{{ __('settings.embeddings_save') }}</flux:button>
+            <flux:button type="button" wire:click="indexEmbeddings" wire:loading.attr="disabled">{{ __('settings.embeddings_index') }}</flux:button>
+        </div>
     </form>
     <flux:heading size="lg" level="2">{{ __('settings.grading_title') }}</flux:heading>
     <form wire:submit="save" class="space-y-8">

@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 use App\Actions\ArchiveOpportunity;
 use App\Actions\ChangeOpportunityStatus;
+use App\Actions\FindRelatedContent;
 use App\Actions\QueueLinkChecks;
 use App\Actions\RequestLetterSuggestions;
 use App\Actions\RequestScoring;
 use App\Actions\SaveCoverLetter;
+use App\Enums\EmbeddingKind;
 use App\Enums\OpportunityStatus;
 use App\Models\CoverLetter;
 use App\Models\Opportunity;
+use App\Support\EmbeddingSettings;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -105,6 +108,20 @@ new #[Layout('layouts.app')] class extends Component
         return app(RequestScoring::class)->isPending($this->opportunity);
     }
 
+    /** @return list<array{opportunity: Opportunity, similarity: float}> */
+    #[Computed]
+    public function relatedJobs(): array
+    {
+        return app(FindRelatedContent::class)->handle($this->opportunity, EmbeddingKind::Job);
+    }
+
+    /** @return list<array{opportunity: Opportunity, similarity: float}> */
+    #[Computed]
+    public function relatedLetters(): array
+    {
+        return app(FindRelatedContent::class)->handle($this->opportunity, EmbeddingKind::Letter);
+    }
+
     public function archive(): void
     {
         app(ArchiveOpportunity::class)->handle($this->opportunity, ! $this->opportunity->archived_at);
@@ -141,6 +158,20 @@ new #[Layout('layouts.app')] class extends Component
         </section>
         <section class="panel detail-panel" @if($this->scorePending) wire:poll.5s @endif><h2>{{ __('jobs.rankings') }}</h2>@foreach(['desirability','skill_match'] as $field)<div class="detail-ranking"><span>{{ __('jobs.'.$field) }}</span><strong class="score-pill score-{{ $job->{$field} ?? 'none' }}">{{ $job->{$field} ? $job->{$field}.' / 5' : __('jobs.unscored') }}</strong></div><p class="preserve-text muted">{{ $job->{$field.'_notes'} }}</p>@endforeach<button type="button" wire:click="scoreWithAi" class="archive-button" wire:loading.attr="disabled" @disabled($this->scorePending)>{{ $this->scorePending ? __('jobs.score_one_working') : __('jobs.score_one') }}</button></section>
         <section class="panel detail-panel"><h2>{{ __('jobs.status_history') }}</h2><ol class="history">@forelse($job->events as $event)<li><strong>{{ $event->to_status->label() }}</strong><span>{{ $event->created_at->format('M j, Y · g:i a') }}</span></li>@empty<li>{{ __('jobs.no_history') }}</li>@endforelse</ol></section>
+        @if(EmbeddingSettings::enabled())
+            @foreach(['relatedJobs' => 'related_jobs', 'relatedLetters' => 'related_letters'] as $property => $label)
+                <section class="panel detail-panel">
+                    <h2>{{ __('settings.'.$label) }}</h2>
+                    <ul class="detail-list">
+                        @forelse($this->{$property} as $match)
+                            <li><a class="role-link" href="/opportunities/{{ $match['opportunity']->id }}{{ $property === 'relatedLetters' ? '#letter' : '' }}" wire:navigate>{{ $match['opportunity']->company }} — {{ $match['opportunity']->title }}</a></li>
+                        @empty
+                            <li>{{ __('settings.related_empty') }}</li>
+                        @endforelse
+                    </ul>
+                </section>
+            @endforeach
+        @endif
         <button type="button" wire:click="archive" class="archive-button" wire:loading.attr="disabled">{{ $job->archived_at ? __('jobs.restore_job') : __('jobs.archive_job') }}</button>
     </aside></div>
 </div>

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Enums\AiDriver;
 use App\Enums\LinkCheckStatus;
 use App\Models\AiRequest;
-use Illuminate\Support\Facades\DB;
+use App\Models\LinkCheck;
 
 final class ClaimAiRequest
 {
@@ -15,16 +16,15 @@ final class ClaimAiRequest
         .'salary_min, salary_max (plain numbers), currency (3-letter code), pay_period (hour|day|week|month|year), salary_notes';
 
     /** @return array{id: int, chain: list<array{agent: string, model: string}>, prompt: string}|null */
-    public function handle(): ?array
+    public function handle(?int $id = null, AiDriver $driver = AiDriver::Bridge): ?array
     {
-        $request = DB::transaction(function (): ?AiRequest {
-            $request = AiRequest::query()->with('linkCheck')->where('kind', AiRequest::KIND_EXTRACT)->where('status', LinkCheckStatus::Queued)
-                ->whereDoesntHave('linkCheck.aiRequests', fn ($query) => $query->where('kind', AiRequest::KIND_RENDER)->whereIn('status', [LinkCheckStatus::Queued, LinkCheckStatus::Running]))->orderBy('id')->first();
-            $request?->update(['status' => LinkCheckStatus::Running, 'started_at' => now()]);
-
-            return $request;
-        });
+        $request = app(ClaimPendingAiRequest::class)->handle(AiRequest::KIND_EXTRACT, $id, $driver);
         if (! $request instanceof AiRequest) {
+            return null;
+        }
+        if (! $request->linkCheck instanceof LinkCheck || blank($request->linkCheck->page_text)) {
+            $request->update(['status' => LinkCheckStatus::Failed, 'message' => __('ai.unusable'), 'finished_at' => now()]);
+
             return null;
         }
 

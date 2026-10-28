@@ -10,3 +10,5 @@ Jacker is a personal, single-user project; issues and pull requests are welcome 
 6. The application deliberately has no login. Do not add features that call external services or send messages without an explicit opt-in.
 
 To try the app with fake data, use a disposable database and `php artisan db:seed --class=DemoSeeder` (see the README).
+
+Use the SDK fakes with stray prompts/embeddings blocked when testing AI paths. Do not run live inference or enable provider processing against personal records during development. See [development and verification](docs/development.md) for commands, coverage and demo screenshots.

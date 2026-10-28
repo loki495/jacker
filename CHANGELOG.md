@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-- Mobile: stack job finder filters and prevent overflow in detail panels and queue actions.
+- Optional Laravel AI provider processing for extraction, grading and letter suggestions, with per-feature Settings and the host bridge as default.
+- Experimental opt-in similarities for jobs and past letters using SQLite vectors and local ranking.
+- Portfolio documentation, architecture guide and screenshots with fake demo data.
 
+- Mobile: stack job finder filters and prevent overflow in detail panels and queue actions.
 - Docs: README split into `docs/`, contributing and security files, demo seeder.
 - Tests: board stage and selection, queue polling, shell markup, import scroll, CSV header aliases, cover letter commands; coverage floor 94%.
 - Theme font now matches the declared Instrument Sans.

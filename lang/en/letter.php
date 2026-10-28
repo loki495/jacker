@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 return [
     'heading' => 'Cover letter',
-    'intro' => 'One letter per job. Paste or import the text, edit it and save. Nothing is sent anywhere.',
+    'intro' => 'One letter per job. Paste or import the text, edit it and save. Optional AI suggestions and similarities use the processing settings.',
     'body' => 'Letter text',
     'upload' => 'Import a .txt or .md file',
     'upload_invalid' => 'Choose a .txt or .md file up to 200 KB.',
@@ -15,7 +15,7 @@ return [
     'pdf' => 'Download PDF',
     'suggest' => 'Suggest improvements with AI',
     'suggest_working' => 'Waiting for suggestions…',
-    'suggest_queued' => 'Queued. The suggestions appear here when the host bridge finishes; your letter is never changed.',
+    'suggest_queued' => 'Queued. The suggestions appear here when processing finishes; your letter is never changed.',
     'suggest_pending' => 'A suggestions request is already pending for this letter.',
     'suggest_save_first' => 'Save the letter before asking for suggestions.',
     'suggestions' => 'AI suggestions',
