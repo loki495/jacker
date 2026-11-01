@@ -41,3 +41,5 @@ The detail page compares compatible vectors using cosine similarity in PHP. It e
 The `jacker-app` container serves HTTP. `jacker-queue` processes Laravel jobs. `bin/ai-bridge` runs on the host for bridge requests and isolated browser rendering. Restart the queue service after changing queued code or provider configuration.
 
 Pest runs only against guarded SQLite `:memory:`. SDK tests use the SDK fakes with stray calls blocked; browser screenshots use disposable demo data. See [development](development.md) for the ordered quality gate and coverage floor.
+
+`bin/agent-worker` is a second host process with tools, kept apart from `bin/ai-bridge` so the bridge's no-tools safety model is unchanged. It serves `scrape` requests (`agent:claim`, `agent:complete`, presence via `agent:register` and `App\Support\AgentWorker`), never reads job-posting text itself, and tells the agent that fetched text is data. CSVs it hands over live in the git-ignored `storage/app/agent/`.

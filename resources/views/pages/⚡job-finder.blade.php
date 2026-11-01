@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 use App\Actions\AcceptFoundJob;
+use App\Actions\RequestAgentScrape;
 use App\Actions\StartScrapeRuns;
 use App\Enums\FoundJobStatus;
 use App\Enums\LinkCheckStatus;
+use App\Models\AiRequest;
 use App\Models\FoundJob;
 use App\Models\ScrapeRun;
+use App\Support\AgentWorker;
 use App\Support\LocationSort;
 use App\Support\PaySort;
 use Illuminate\Validation\ValidationException;
@@ -40,6 +43,23 @@ new #[Layout('layouts.app')] class extends Component
 
     /** Ids ticked on any page; they stay ticked while paging and are cleared once imported. @var list<int> */
     public array $selected = [];
+
+    public function agentScrape(RequestAgentScrape $request): void
+    {
+        $this->message = $request->handle() instanceof AiRequest ? __('scrapers.agent_queued') : __('scrapers.agent_unavailable');
+    }
+
+    #[Computed]
+    public function agentRun(): ?AiRequest
+    {
+        return AgentWorker::online() || $this->agentPending ? AiRequest::query()->where('kind', AiRequest::KIND_SCRAPE)->latest('id')->first() : null;
+    }
+
+    #[Computed]
+    public function agentPending(): bool
+    {
+        return app(RequestAgentScrape::class)->pending();
+    }
 
     public function addSelected(AcceptFoundJob $accept): void
     {
@@ -132,6 +152,14 @@ new #[Layout('layouts.app')] class extends Component
 <div wire:poll.3s>
     <div class="page-heading"><div><div class="eyebrow">{{ __('jobs.workspace') }}</div><h1>{{ __('scrapers.title') }}</h1><p>{{ __('scrapers.intro', ['pages' => config('scrapers.max_pages'), 'spacing' => config('scrapers.spacing')]) }}</p></div><flux:button wire:click="run('all')" variant="primary" icon="arrow-path" :disabled="$this->busy">{{ __('scrapers.run_all') }}</flux:button></div>
     @if($message)<div class="success-message" role="status">{{ $message }}</div>@endif
+    @if($this->agentRun)
+        <section class="panel" @if($this->agentPending) wire:poll.5s @endif>
+            <div class="pipeline-header"><div><h2>{{ __('scrapers.agent_title') }}</h2><p class="muted">{{ __('scrapers.agent_intro') }}</p></div><flux:button size="sm" variant="primary" icon="sparkles" wire:click="agentScrape" :disabled="$this->agentPending">{{ __('scrapers.agent_run') }}</flux:button></div>
+            <p><span class="status-badge link-{{ $this->agentRun->status->value }}">{{ $this->agentRun->status->label() }}</span> {{ $this->agentRun->created_at->format('M j, g:i a') }} {{ $this->agentRun->message }}</p>
+        </section>
+    @elseif(App\Support\AgentWorker::online())
+        <section class="panel"><div class="pipeline-header"><div><h2>{{ __('scrapers.agent_title') }}</h2><p class="muted">{{ __('scrapers.agent_intro') }}</p></div><flux:button size="sm" variant="primary" icon="sparkles" wire:click="agentScrape">{{ __('scrapers.agent_run') }}</flux:button></div></section>
+    @endif
     <section class="panel detail-panel"><div class="flex flex-wrap gap-2">
         @foreach(array_keys(config('scrapers.sources')) as $source)
             <flux:button size="sm" wire:click="run('{{ $source }}')" :disabled="$this->busy">{{ __('scrapers.run_one', ['source' => __('scrapers.source_'.$source)]) }}</flux:button>
