@@ -38,6 +38,11 @@ an apostrophe prefix; this protective apostrophe remains literal on reimport. Ne
 extra values are exported as JSON strings. An identical export reimport skips exact
 URL matches; records without URLs remain possible duplicates and default to skip.
 
+**Headless import.** `php artisan csv:import <path>` imports without review: headers are
+auto-mapped with the same suggestions as the page, invalid rows are skipped with a warning,
+and exact URL duplicates and possible duplicates are skipped. It prints `Imported N, skipped M.`
+and never updates an existing opportunity.
+
 Private uploads are removed after a successful import or replacement upload. Abandoned
 uploads remain private on disk; an operator can remove old `csv-imports/*.csv` files
 once no active import needs them. No browser-provided preview rows are accepted for

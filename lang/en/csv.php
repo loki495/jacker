@@ -55,4 +55,6 @@ return [
     'mapping_encoding' => 'Encoded extra field names must contain valid UTF-8 text.',
     'iso_date' => 'Use an unambiguous ISO date: YYYY-MM-DD.',
     'exclude_invalid' => 'Explicitly exclude invalid record :record before importing.',
+    'cli_invalid' => 'Skipping record :record: :errors',
+    'cli_done' => 'Imported :imported, skipped :skipped.',
 ];
