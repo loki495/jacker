@@ -323,4 +323,12 @@ return [
     'score_mode_all' => 'Re-score all',
     'score_mode_unscored' => 'Unscored only',
     'score_empty' => 'No scoring requests yet.',
+    'apply_title' => 'Custom CV and cover letter',
+    'apply_hint' => 'Drafts made by the private /apply workflow for this job only. They carry your contact details and need your review before you send anything; you apply yourself.',
+    'apply_run' => 'Draft CV and letter',
+    'apply_working' => 'Drafting...',
+    'apply_queued' => 'Drafting queued for the agent worker.',
+    'apply_unavailable' => 'The agent worker is offline, this job has no web application link, or a draft is already pending.',
+    'apply_file_cv' => 'CV (PDF)',
+    'apply_file_letter' => 'Cover letter (PDF)',
 ];

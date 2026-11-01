@@ -6,11 +6,13 @@ use App\Actions\ArchiveOpportunity;
 use App\Actions\ChangeOpportunityStatus;
 use App\Actions\FindRelatedContent;
 use App\Actions\QueueLinkChecks;
+use App\Actions\RequestAgentApply;
 use App\Actions\RequestLetterSuggestions;
 use App\Actions\RequestScoring;
 use App\Actions\SaveCoverLetter;
 use App\Enums\EmbeddingKind;
 use App\Enums\OpportunityStatus;
+use App\Models\AiRequest;
 use App\Models\CoverLetter;
 use App\Models\Opportunity;
 use App\Support\EmbeddingSettings;
@@ -102,6 +104,23 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('message', $scoring->forOpportunity($this->opportunity) ? __('jobs.score_one_queued') : __('jobs.score_one_pending'));
     }
 
+    public function generateApplication(RequestAgentApply $apply): void
+    {
+        session()->flash('message', $apply->handle($this->opportunity) instanceof AiRequest ? __('jobs.apply_queued') : __('jobs.apply_unavailable'));
+    }
+
+    #[Computed]
+    public function applyPending(): bool
+    {
+        return app(RequestAgentApply::class)->pending($this->opportunity);
+    }
+
+    #[Computed]
+    public function applyRun(): ?AiRequest
+    {
+        return AiRequest::query()->where('kind', AiRequest::KIND_APPLY)->where('opportunity_id', $this->opportunity->id)->latest('id')->first();
+    }
+
     #[Computed]
     public function scorePending(): bool
     {
@@ -157,6 +176,12 @@ new #[Layout('layouts.app')] class extends Component
         @if($job->application_url)<p class="field-hint">@if($job->link_checked_at)<span class="status-badge link-{{ $job->link_status === 'ok' ? 'done' : 'failed' }}">{{ App\Enums\LinkResult::tryFrom((string) $job->link_status)?->label() }}</span> {{ __('jobs.link_last_checked', ['when' => $job->link_checked_at->diffForHumans()]) }}@else{{ __('jobs.link_never_checked') }}@endif</p><button type="button" wire:click="checkLink" class="archive-button" wire:loading.attr="disabled">{{ __('jobs.link_check_one') }}</button>@endif
         </section>
         <section class="panel detail-panel" @if($this->scorePending) wire:poll.5s @endif><h2>{{ __('jobs.rankings') }}</h2>@foreach(['desirability','skill_match'] as $field)<div class="detail-ranking"><span>{{ __('jobs.'.$field) }}</span><strong class="score-pill score-{{ $job->{$field} ?? 'none' }}">{{ $job->{$field} ? $job->{$field}.' / 5' : __('jobs.unscored') }}</strong></div><p class="preserve-text muted">{{ $job->{$field.'_notes'} }}</p>@endforeach<button type="button" wire:click="scoreWithAi" class="archive-button" wire:loading.attr="disabled" @disabled($this->scorePending)>{{ $this->scorePending ? __('jobs.score_one_working') : __('jobs.score_one') }}</button></section>
+        @if(App\Support\AgentWorker::online() || $this->applyRun)
+            <section class="panel detail-panel" @if($this->applyPending) wire:poll.5s @endif><h2>{{ __('jobs.apply_title') }}</h2><p class="field-hint">{{ __('jobs.apply_hint') }}</p>
+            @if($this->applyRun)<p><span class="status-badge link-{{ $this->applyRun->status->value }}">{{ $this->applyRun->status->label() }}</span> {{ $this->applyRun->message }}</p>@endif
+            @foreach(App\Support\AgentFiles::available($job) as $file)<a class="external-link" href="{{ route('opportunities.application-file', [$job, $file]) }}" target="_blank" rel="noopener noreferrer">{{ __('jobs.apply_file_'.$file) }} ↗</a> @endforeach
+            @if(App\Support\AgentWorker::online() && app(App\Actions\RequestAgentApply::class)->eligible($job))<button type="button" wire:click="generateApplication" class="archive-button" wire:loading.attr="disabled" @disabled($this->applyPending)>{{ $this->applyPending ? __('jobs.apply_working') : __('jobs.apply_run') }}</button>@endif</section>
+        @endif
         <section class="panel detail-panel"><h2>{{ __('jobs.status_history') }}</h2><ol class="history">@forelse($job->events as $event)<li><strong>{{ $event->to_status->label() }}</strong><span>{{ $event->created_at->format('M j, Y · g:i a') }}</span></li>@empty<li>{{ __('jobs.no_history') }}</li>@endforelse</ol></section>
         @if(EmbeddingSettings::enabled())
             @foreach(['relatedJobs' => 'related_jobs', 'relatedLetters' => 'related_letters'] as $property => $label)

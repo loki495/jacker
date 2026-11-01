@@ -1,0 +1,13 @@
+[Unit]
+Description=Jacker agent worker: runs the private job search and per-job CV/letter drafts in ai-job-search through Sessioneer
+After=docker.service
+
+[Service]
+Type=simple
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/www/personal/jacker/bin/agent-worker --loop
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
