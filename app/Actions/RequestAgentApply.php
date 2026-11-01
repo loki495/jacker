@@ -8,14 +8,18 @@ use App\Enums\AiDriver;
 use App\Enums\LinkCheckStatus;
 use App\Models\AiRequest;
 use App\Models\Opportunity;
+use App\Services\UrlGuard;
 use App\Support\AgentWorker;
+use InvalidArgumentException;
 
-final class RequestAgentApply
+final readonly class RequestAgentApply
 {
+    public function __construct(private UrlGuard $guard) {}
+
     /** Queues the /apply workflow for one selected job; null when the worker is offline, the job has no http(s) application link, or a run is already pending. */
     public function handle(Opportunity $opportunity): ?AiRequest
     {
-        if (! AgentWorker::online() || ! $this->eligible($opportunity) || $this->pending($opportunity)) {
+        if (! AgentWorker::online() || ! $this->eligible($opportunity) || $this->pending($opportunity) || ! $this->isPublic($opportunity)) {
             return null;
         }
 
@@ -24,7 +28,24 @@ final class RequestAgentApply
 
     public function eligible(Opportunity $opportunity): bool
     {
-        return preg_match('#^https?://[^\s"\'<>`\\\\]+$#i', (string) $opportunity->application_url) === 1;
+        $url = (string) $opportunity->application_url;
+
+        return strlen($url) <= 500 && preg_match('#^https?://[^\s"\'<>`\\\\\#]+$#i', $url) === 1;
+    }
+
+    /** True when the link is well formed and resolves only to public addresses (the same guard the page renderer uses). */
+    public function isPublic(Opportunity $opportunity): bool
+    {
+        if (! $this->eligible($opportunity)) {
+            return false;
+        }
+        try {
+            $this->guard->assertPublic((string) $opportunity->application_url);
+        } catch (InvalidArgumentException) {
+            return false;
+        }
+
+        return true;
     }
 
     public function pending(Opportunity $opportunity): bool

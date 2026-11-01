@@ -329,6 +329,7 @@ return [
     'apply_working' => 'Drafting...',
     'apply_queued' => 'Drafting queued for the agent worker.',
     'apply_unavailable' => 'The agent worker is offline, this job has no web application link, or a draft is already pending.',
+    'apply_bad_link' => 'The application link is not a public web address.',
     'apply_file_cv' => 'CV (PDF)',
     'apply_file_letter' => 'Cover letter (PDF)',
 ];

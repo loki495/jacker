@@ -7,12 +7,15 @@ use App\Actions\RequestAgentScrape;
 use App\Enums\LinkCheckStatus;
 use App\Models\AiRequest;
 use App\Models\Opportunity;
+use App\Services\UrlGuard;
 use App\Support\AgentFiles;
 use App\Support\AgentWorker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
+
+beforeEach(fn () => app()->instance(UrlGuard::class, new UrlGuard(fn (string $host): array => $host === 'internal.test' ? ['192.168.1.5'] : ['93.184.216.34'])));
 
 it('hides the button and refuses requests while the worker is offline', function (): void {
     Livewire::test('pages::job-finder')->assertDontSee(__('scrapers.agent_run'));
@@ -63,7 +66,7 @@ it('queues a custom CV and letter for one job with a web link, once, and only wh
 it('refuses jobs without a plain http(s) link', function (string $url): void {
     AgentWorker::register();
     expect(app(RequestAgentApply::class)->handle(Opportunity::factory()->create(['application_url' => $url])))->toBeNull();
-})->with(['', 'javascript:alert(1)', 'https://example.com/a b', 'https://example.com/"x', 'ftp://example.com/x']);
+})->with(['', 'javascript:alert(1)', 'https://example.com/a b', 'https://example.com/"x', 'ftp://example.com/x', 'https://example.com/x#frag', 'https://internal.test/job', 'http://192.168.1.5/x']);
 
 it('serves a drafted PDF only for the known file names and only when it exists', function (): void {
     $scratch = sys_get_temp_dir().'/jacker-agent-test-'.bin2hex(random_bytes(4));
@@ -85,4 +88,14 @@ it('serves a drafted PDF only for the known file names and only when it exists',
         rmdir(dirname($dir, 3));
         rmdir($scratch);
     }
+});
+
+it('fails a queued apply request whose link turned non-public instead of handing it to the worker', function (): void {
+    AgentWorker::register();
+    $job = Opportunity::factory()->create(['application_url' => 'https://example.com/jobs/1']);
+    $request = app(RequestAgentApply::class)->handle($job);
+    $job->update(['application_url' => 'https://internal.test/job']);
+
+    $this->artisan('agent:claim')->doesntExpectOutputToContain('apply')->assertSuccessful();
+    expect($request->refresh()->status)->toBe(LinkCheckStatus::Failed)->and($request->message)->toBe(__('jobs.apply_bad_link'));
 });
