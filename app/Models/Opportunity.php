@@ -109,6 +109,12 @@ class Opportunity extends Model
         return $this->hasOne(CoverLetter::class);
     }
 
+    /** @return HasOne<Resume, $this> */
+    public function resume(): HasOne
+    {
+        return $this->hasOne(Resume::class);
+    }
+
     /** @return HasMany<OpportunityEvent, $this> */
     public function events(): HasMany
     {

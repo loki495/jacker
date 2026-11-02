@@ -2,15 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Actions\PreloadApplicationMarkdown;
 use App\Actions\RequestAgentApply;
 use App\Actions\RequestAgentScrape;
+use App\Actions\SaveCoverLetter;
 use App\Enums\LinkCheckStatus;
 use App\Models\AiRequest;
+use App\Models\CoverLetter;
 use App\Models\Opportunity;
+use App\Models\Resume;
 use App\Services\UrlGuard;
 use App\Support\AgentFiles;
 use App\Support\AgentWorker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -98,4 +103,84 @@ it('fails a queued apply request whose link turned non-public instead of handing
 
     $this->artisan('agent:claim')->doesntExpectOutputToContain('apply')->assertSuccessful();
     expect($request->refresh()->status)->toBe(LinkCheckStatus::Failed)->and($request->message)->toBe(__('jobs.apply_bad_link'));
+});
+
+function applyScratch(Opportunity $job, array $files): string
+{
+    $scratch = sys_get_temp_dir().'/jacker-md-test-'.bin2hex(random_bytes(4));
+    app()->useStoragePath($scratch);
+    mkdir(dirname(AgentFiles::markdownPath($job, 'resume')), 0755, true);
+    foreach ($files as $name => $content) {
+        file_put_contents(AgentFiles::markdownPath($job, $name), $content);
+    }
+
+    return $scratch;
+}
+
+it('preloads the letter and resume editors from the stored Markdown', function (): void {
+    $job = Opportunity::factory()->create();
+    $scratch = applyScratch($job, ['resume' => "## Experience\n- Built things\n", 'letter' => "Dear team,\n\nHello.\n"]);
+    try {
+        $this->artisan('agent:preload', ['opportunity' => $job->id])->expectsOutput('letter,resume')->assertSuccessful();
+        expect($job->coverLetter()->first()?->body)->toBe("Dear team,\n\nHello.")->and($job->resume()->first()?->body)->toBe("## Experience\n- Built things");
+    } finally {
+        File::deleteDirectory($scratch);
+    }
+});
+
+it('never overwrites an existing letter or resume', function (): void {
+    $job = Opportunity::factory()->create();
+    app(SaveCoverLetter::class)->handle($job, 'My own letter');
+    Resume::query()->create(['opportunity_id' => $job->id, 'body' => 'My own resume']);
+    $scratch = applyScratch($job, ['resume' => 'new resume', 'letter' => 'new letter']);
+    try {
+        expect(app(PreloadApplicationMarkdown::class)->handle($job))->toBe([])
+            ->and($job->coverLetter()->first()?->body)->toBe('My own letter')
+            ->and($job->resume()->first()?->body)->toBe('My own resume');
+    } finally {
+        File::deleteDirectory($scratch);
+    }
+});
+
+it('fills only the editor that is empty', function (): void {
+    $job = Opportunity::factory()->create();
+    app(SaveCoverLetter::class)->handle($job, 'Mine');
+    $scratch = applyScratch($job, ['resume' => 'r', 'letter' => 'l']);
+    try {
+        expect(app(PreloadApplicationMarkdown::class)->handle($job))->toBe(['resume'])->and($job->coverLetter()->first()?->body)->toBe('Mine');
+    } finally {
+        File::deleteDirectory($scratch);
+    }
+});
+
+it('ignores missing, blank, binary, oversized and symlinked Markdown', function (): void {
+    $job = Opportunity::factory()->create();
+    $scratch = applyScratch($job, ['resume' => "  \n", 'letter' => "\xff\xfe bad"]);
+    try {
+        expect(app(PreloadApplicationMarkdown::class)->handle($job))->toBe([]);
+
+        file_put_contents(AgentFiles::markdownPath($job, 'resume'), str_repeat('a', PreloadApplicationMarkdown::MAX + 1));
+        unlink(AgentFiles::markdownPath($job, 'letter'));
+        expect(app(PreloadApplicationMarkdown::class)->handle($job))->toBe([]);
+
+        $target = $scratch.'/secret.md';
+        file_put_contents($target, 'secret');
+        unlink(AgentFiles::markdownPath($job, 'resume'));
+        symlink($target, AgentFiles::markdownPath($job, 'resume'));
+        symlink($target, AgentFiles::markdownPath($job, 'letter'));
+        expect(app(PreloadApplicationMarkdown::class)->handle($job))->toBe([])->and(Resume::query()->count())->toBe(0)->and(CoverLetter::query()->count())->toBe(0);
+    } finally {
+        File::deleteDirectory($scratch);
+    }
+});
+
+it('rejects agent:preload for an unknown job', function (): void {
+    $this->artisan('agent:preload', ['opportunity' => 999999])->assertFailed();
+});
+
+it('removes the resume with its job', function (): void {
+    $job = Opportunity::factory()->create();
+    Resume::query()->create(['opportunity_id' => $job->id, 'body' => 'x']);
+    $job->delete();
+    expect(Resume::query()->count())->toBe(0);
 });

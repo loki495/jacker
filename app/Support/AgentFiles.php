@@ -11,6 +11,14 @@ final class AgentFiles
 {
     public const array NAMES = ['resume' => 'resume.pdf', 'letter' => 'letter.pdf'];
 
+    /** Markdown twins of the PDFs, preloaded into the editors by PreloadApplicationMarkdown. */
+    public const array MARKDOWN = ['resume' => 'resume.md', 'letter' => 'letter.md'];
+
+    public static function markdownPath(Opportunity $opportunity, string $file): string
+    {
+        return storage_path('app/agent/apply/'.$opportunity->id.'/'.(self::MARKDOWN[$file] ?? abort(404)));
+    }
+
     public static function path(Opportunity $opportunity, string $file): string
     {
         return storage_path('app/agent/apply/'.$opportunity->id.'/'.(self::NAMES[$file] ?? abort(404)));

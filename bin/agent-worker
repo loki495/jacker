@@ -91,20 +91,29 @@ style_problem() {
 }
 
 apply_one() {
-    local id="$1" oid="$2" url="$3" reply resume letter dest task problem
+    local id="$1" oid="$2" url="$3" reply resume letter resume_md letter_md json dest filled task problem
     [[ ${#url} -le 500 && "$url" =~ ^https?://[^[:space:]\"\'\<\>\`\\#]+$ ]] || { artisan agent:complete "$id" --fail --message="the job has no usable web link"; return 0; }
     task="Run /apply for this single job posting, non-interactively (take the defaults, do not ask questions). The posting link is the text in the DATA block; it is the only thing to fetch. Make the resume and cover letter PDFs the workflow produces, but do not send or submit anything. This is for the US market: call it a resume, never a CV, use Liberation Sans, and leave out any References section.
-Finish with one line of JSON and nothing after it: {\"resume\": \"cv/<file>.pdf\", \"letter\": \"cover_letters/<file>.pdf\"} with paths relative to this repository."
+Also write plain Markdown versions of the same two documents next to the PDFs, with the same text: cv/<file>.md and cover_letters/<file>.md (## for sections, **bold**, *italic*, - for bullets, [text](url) for links; no HTML).
+Finish with one line of JSON and nothing after it: {\"resume\": \"cv/<file>.pdf\", \"letter\": \"cover_letters/<file>.pdf\", \"resume_md\": \"cv/<file>.md\", \"letter_md\": \"cover_letters/<file>.md\"} with paths relative to this repository."
     reply="$(run_session "$(with_writes "$APPLY_WRITES"),$APPLY_BASH" "$url" <<<"$task")" || { artisan agent:complete "$id" --fail --message="the agent session failed or timed out"; return 0; }
-    resume="$(grep -o '{[^{}]*}' <<<"$reply" | tail -n1 | jq -r '.resume // empty' 2>/dev/null || true)"
-    letter="$(grep -o '{[^{}]*}' <<<"$reply" | tail -n1 | jq -r '.letter // empty' 2>/dev/null || true)"
+    json="$(grep -o '{[^{}]*}' <<<"$reply" | tail -n1)"
+    resume="$(jq -r '.resume // empty' <<<"$json" 2>/dev/null || true)"
+    letter="$(jq -r '.letter // empty' <<<"$json" 2>/dev/null || true)"
+    resume_md="$(jq -r '.resume_md // empty' <<<"$json" 2>/dev/null || true)"
+    letter_md="$(jq -r '.letter_md // empty' <<<"$json" 2>/dev/null || true)"
     if ! [[ "$resume" =~ ^cv/[A-Za-z0-9._-]+\.pdf$ && "$letter" =~ ^cover_letters/[A-Za-z0-9._-]+\.pdf$ && -f "$REPO/$resume" && -f "$REPO/$letter" && ! -L "$REPO/$resume" && ! -L "$REPO/$letter" ]]; then
         artisan agent:complete "$id" --fail --message="the agent did not produce a resume and letter PDF"; return 0
     fi
     problem="$(style_problem "$REPO/$resume" "$REPO/$letter")" || { artisan agent:complete "$id" --fail --message="$problem"; return 0; }
     dest="$APP_DIR/storage/app/agent/apply/$oid"
     mkdir -p "$dest"; cp -- "$REPO/$resume" "$dest/resume.pdf"; cp -- "$REPO/$letter" "$dest/letter.pdf"
-    artisan agent:complete "$id" --message="Drafted $(basename "$resume") and $(basename "$letter")"
+    # The Markdown is optional and validated like the PDFs; a bad or missing file is skipped, the PDFs still stand.
+    rm -f "$dest/resume.md" "$dest/letter.md"
+    [[ "$resume_md" =~ ^cv/[A-Za-z0-9._-]+\.md$ && -f "$REPO/$resume_md" && ! -L "$REPO/$resume_md" ]] && cp -- "$REPO/$resume_md" "$dest/resume.md"
+    [[ "$letter_md" =~ ^cover_letters/[A-Za-z0-9._-]+\.md$ && -f "$REPO/$letter_md" && ! -L "$REPO/$letter_md" ]] && cp -- "$REPO/$letter_md" "$dest/letter.md"
+    filled="$(artisan agent:preload "$oid" 2>/dev/null | tail -n1 || true)"
+    artisan agent:complete "$id" --message="Drafted $(basename "$resume") and $(basename "$letter")${filled:+; preloaded $filled}"
 }
 
 work_one() {
