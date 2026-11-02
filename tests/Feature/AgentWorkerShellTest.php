@@ -121,3 +121,35 @@ it('keeps network tools out of the research denies check: bash and subagents are
     [, $out] = workerShell($this->app_dir, 'echo "$RESEARCH_DENIED"');
     expect($out)->toStartWith('Bash,Agent,Skill,');
 });
+
+it('gives the scrape and drafting sessions no network tool, reads limited to the repo (and scratch), and no portal fetchers for apply', function (): void {
+    $log = $this->app_dir.'/log';
+    $repo = $this->app_dir.'/repo';
+    File::ensureDirectoryExists($log);
+    File::ensureDirectoryExists($repo);
+    $bin = stubSessioneer($this->app_dir);
+    file_put_contents($bin.'/jq', "#!/usr/bin/env bash\ncat \"\$STUB_ALLOW\"\n");
+    chmod($bin.'/jq', 0755);
+    file_put_contents($this->app_dir.'/allow', "Skill(x)\nBash(bun run .agents/skills/a-search/cli/src/cli.ts:*)\nBash(python3 tools/fetch_page.py:*)\nBash(python3 tools/robots_check.py:*)\nBash(python3 tools/job_key.py:*)\nBash(python3 salary_lookup.py:*)\n");
+    $env = ['PATH' => $bin.':'.getenv('PATH'), 'STUB_LOG' => $log, 'STUB_ALLOW' => $this->app_dir.'/allow', 'RENDER_NODE' => $this->render, 'AI_JOB_SEARCH_DIR' => $repo];
+    $scratch = $this->app_dir.'/storage/app/agent/apply/7/scratch';
+
+    workerShell($this->app_dir, 'scrape_one 3', $env);
+    workerShell($this->app_dir, 'apply_one 1 7 https://example.com/j', $env + ['STUB_NO_RESEARCH' => '1']);
+    $scrape = file_get_contents($log.'/args0');
+    $draft = file_get_contents($log.'/args2');
+
+    foreach ([$scrape, $draft] as $args) {
+        expect(sessionArg($args, '--allowed-tools'))->not->toMatch('/WebFetch|WebSearch|Agent/')
+            ->and(sessionArg($args, '--disallowed-tools'))->toContain('WebFetch,WebSearch,Agent')
+            ->and(sessionArg($args, '--workdir'))->toBe($repo);
+    }
+    $scrapeTools = explode(',', sessionArg($scrape, '--allowed-tools'));
+    $draftTools = explode(',', sessionArg($draft, '--allowed-tools'));
+    expect(array_values(array_filter($scrapeTools, fn (string $t): bool => str_starts_with($t, 'Read'))))->toBe(["Read(/$repo/**)"])
+        ->and($scrapeTools)->toContain('Bash(bun run .agents/skills/a-search/cli/src/cli.ts:*)')->not->toContain('Bash(python3 tools/fetch_page.py:*)')
+        ->and(array_values(array_filter($draftTools, fn (string $t): bool => str_starts_with($t, 'Read'))))->toBe(["Read(/$repo/**)", "Read(/$scratch/**)"])
+        ->and($draftTools)->toContain('Bash(python3 tools/job_key.py:*)')->not->toContain('Bash(python3 tools/robots_check.py:*)')->not->toContain('Bash(python3 salary_lookup.py:*)')
+        ->and(implode(',', $draftTools))->not->toContain('bun run');
+    File::deleteDirectory($bin);
+});
