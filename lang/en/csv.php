@@ -56,5 +56,6 @@ return [
     'iso_date' => 'Use an unambiguous ISO date: YYYY-MM-DD.',
     'exclude_invalid' => 'Explicitly exclude invalid record :record before importing.',
     'cli_invalid' => 'Skipping record :record: :errors',
+    'cli_checks' => 'Queued :count link checks to fill in missing details.',
     'cli_done' => 'Imported :imported, skipped :skipped.',
 ];

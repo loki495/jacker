@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Jobs\ProcessLinkCheck;
 use App\Models\Opportunity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
 
@@ -36,4 +38,14 @@ it('skips invalid rows instead of blocking the import', function (): void {
 
 it('fails with a message when the file is missing', function (): void {
     $this->artisan('csv:import', ['path' => '/nonexistent.csv'])->assertFailed();
+});
+
+it('queues link checks for imported jobs that have no requirements or responsibilities', function (): void {
+    Queue::fake();
+    $path = importCsv("company,title,url\nAcme,Senior Laravel Developer,https://example.com/a\n");
+
+    $this->artisan('csv:import', ['path' => $path])->assertSuccessful()->expectsOutputToContain('Queued 1 link checks');
+
+    Queue::assertPushed(ProcessLinkCheck::class, 1);
+    unlink($path);
 });

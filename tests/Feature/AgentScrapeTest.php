@@ -52,7 +52,7 @@ it('marks a failed run failed', function (): void {
     expect($request->refresh()->status)->toBe(LinkCheckStatus::Failed);
 });
 
-it('queues a custom CV and letter for one job with a web link, once, and only while the worker is online', function (): void {
+it('queues a custom resume and letter for one job with a web link, once, and only while the worker is online', function (): void {
     $job = Opportunity::factory()->create(['application_url' => 'https://example.com/jobs/1']);
     expect(app(RequestAgentApply::class)->handle($job))->toBeNull();
     AgentWorker::register();
@@ -72,16 +72,16 @@ it('serves a drafted PDF only for the known file names and only when it exists',
     $scratch = sys_get_temp_dir().'/jacker-agent-test-'.bin2hex(random_bytes(4));
     app()->useStoragePath($scratch);
     $job = Opportunity::factory()->create();
-    $this->get(route('opportunities.application-file', [$job, 'cv']))->assertNotFound();
+    $this->get(route('opportunities.application-file', [$job, 'resume']))->assertNotFound();
     $this->get('/opportunities/'.$job->id.'/application/..%2Fx')->assertNotFound();
-    $dir = dirname(AgentFiles::path($job, 'cv'));
+    $dir = dirname(AgentFiles::path($job, 'resume'));
     mkdir($dir, 0755, true);
-    file_put_contents(AgentFiles::path($job, 'cv'), '%PDF-1.4 fake');
+    file_put_contents(AgentFiles::path($job, 'resume'), '%PDF-1.4 fake');
     try {
-        $this->get(route('opportunities.application-file', [$job, 'cv']))->assertOk()->assertHeader('Content-Type', 'application/pdf');
-        expect(AgentFiles::available($job))->toBe(['cv']);
+        $this->get(route('opportunities.application-file', [$job, 'resume']))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        expect(AgentFiles::available($job))->toBe(['resume']);
     } finally {
-        unlink(AgentFiles::path($job, 'cv'));
+        unlink(AgentFiles::path($job, 'resume'));
         rmdir($dir);
         rmdir(dirname($dir));
         rmdir(dirname($dir, 2));

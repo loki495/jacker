@@ -13,7 +13,7 @@ Route::livewire('/opportunities/{opportunity}/edit', 'pages::editor')->name('opp
 Route::livewire('/opportunities/{opportunity}', 'pages::detail')->name('opportunities.show');
 Route::livewire('/opportunities/{opportunity}/questions', 'pages::answers')->name('opportunities.questions');
 Route::get('/opportunities/{opportunity}/cover-letter.pdf', CoverLetterPdfController::class)->name('opportunities.cover-letter');
-Route::get('/opportunities/{opportunity}/application/{file}', AgentFileController::class)->whereIn('file', ['cv', 'letter'])->name('opportunities.application-file');
+Route::get('/opportunities/{opportunity}/application/{file}', AgentFileController::class)->whereIn('file', ['resume', 'letter'])->name('opportunities.application-file');
 Route::livewire('/questions', 'pages::questions')->name('questions');
 
 Route::livewire('/queue', 'pages::queue')->name('queue');
