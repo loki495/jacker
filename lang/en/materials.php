@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'heading' => 'Application materials',
+    'intro' => 'The resume and cover letter for this job. Edit them as Markdown and Jacker renders them to an ATS-friendly PDF (Liberation Sans). Applying stays manual; nothing is sent from here.',
+    'tab_resume' => 'Resume',
+    'tab_letter' => 'Cover letter',
+    'version' => 'Version',
+    'version_generated' => 'Generated (from the draft run)',
+    'version_edited' => 'Edited (my Markdown)',
+    'version_general' => 'General resume',
+    'version_none' => 'None',
+    'unavailable' => 'None available',
+    'preview' => 'Preview',
+    'download' => 'Download PDF',
+    'none_note' => 'No cover letter will be used for this job.',
+    'resume_body' => 'Resume (Markdown)',
+    'save_resume' => 'Save resume',
+    'resume_saved' => 'Resume saved.',
+    'resume_removed' => 'Resume removed.',
+    'resume_too_long' => 'The resume is longer than :max characters.',
+    'help_title' => 'Markdown syntax',
+    'help' => '## Section title · **bold** · *italic* · - bullet · [text](https://example.com). Blank lines separate paragraphs. The words CV and References are not allowed, and the text is limited to 20,000 characters.',
+    'render_problem' => 'Saved, but it cannot be rendered to PDF yet: :message',
+    'generated_missing' => 'No generated version yet; the draft run (below, when the agent worker is online) creates it.',
+    'resume_none_note' => 'No resume version is available yet. Write one below or run the draft.',
+    'edited_missing' => 'Nothing saved yet. Write it in the box and save.',
+    'run_title' => 'Draft with the agent worker',
+];

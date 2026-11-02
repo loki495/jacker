@@ -10,15 +10,20 @@ use App\Actions\RequestAgentApply;
 use App\Actions\RequestLetterSuggestions;
 use App\Actions\RequestScoring;
 use App\Actions\SaveCoverLetter;
+use App\Actions\SaveResume;
 use App\Enums\EmbeddingKind;
 use App\Enums\OpportunityStatus;
 use App\Models\AiRequest;
 use App\Models\CoverLetter;
 use App\Models\Opportunity;
+use App\Models\Resume;
+use App\Services\MarkdownPdf;
+use App\Support\AgentFiles;
 use App\Support\EmbeddingSettings;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -35,11 +40,67 @@ new #[Layout('layouts.app')] class extends Component
 
     public $letterFile = null;
 
+    public string $resumeBody = '';
+
+    #[Url(as: 'materials')]
+    public string $tab = 'resume';
+
+    public string $resumeVersion = 'none';
+
+    public string $letterVersion = 'none';
+
     public function mount(Opportunity $opportunity): void
     {
         $this->opportunityId = $opportunity->id;
         $this->status = $opportunity->status->value;
         $this->letterBody = (string) $this->letter?->body;
+        $this->resumeBody = (string) $this->resume?->body;
+        $this->tab = $this->tab === 'letter' ? 'letter' : 'resume';
+        $this->resumeVersion = $this->versions('resume')[0] ?? 'none';
+        $this->letterVersion = $this->versions('letter')[0] ?? 'none';
+    }
+
+    #[Computed]
+    public function resume(): ?Resume
+    {
+        return Resume::query()->where('opportunity_id', $this->opportunityId)->first();
+    }
+
+    /** @return list<string> versions that exist for the kind, in preference order: edited, generated, general */
+    public function versions(string $kind): array
+    {
+        $found = [];
+        if ($kind === 'resume' ? $this->resume instanceof Resume : $this->letter instanceof CoverLetter) {
+            $found[] = 'edited';
+        }
+        if (in_array($kind, AgentFiles::available($this->opportunity), true)) {
+            $found[] = 'generated';
+        }
+        if ($kind === 'resume' && AgentFiles::generalResume() !== null) {
+            $found[] = 'general';
+        }
+
+        return $found;
+    }
+
+    private function flashSaved(string $kind, string $saved): void
+    {
+        try {
+            (new MarkdownPdf)->render($kind === 'resume' ? $this->resumeBody : $this->letterBody, $kind);
+        } catch (\InvalidArgumentException $e) {
+            $saved = __('materials.render_problem', ['message' => $e->getMessage()]);
+        }
+        session()->flash('message', $saved);
+    }
+
+    public function saveResume(SaveResume $save): void
+    {
+        $this->validate(['resumeBody' => ['nullable', 'string', 'max:'.SaveResume::MAX]], ['resumeBody.max' => __('materials.resume_too_long', ['max' => SaveResume::MAX])]);
+        $saved = $save->handle($this->opportunity, $this->resumeBody);
+        unset($this->resume);
+        $this->resumeBody = (string) $saved?->body;
+        $this->resumeVersion = $saved instanceof Resume ? 'edited' : ($this->versions('resume')[0] ?? 'none');
+        $this->flashSaved('resume', $saved instanceof Resume ? __('materials.resume_saved') : __('materials.resume_removed'));
     }
 
     #[Computed]
@@ -67,7 +128,8 @@ new #[Layout('layouts.app')] class extends Component
         $saved = $save->handle($this->opportunity, $this->letterBody);
         unset($this->letter);
         $this->letterBody = (string) $saved?->body;
-        session()->flash('message', $saved instanceof CoverLetter ? __('letter.saved') : __('letter.removed'));
+        $this->letterVersion = $saved instanceof CoverLetter ? 'edited' : ($this->versions('letter')[0] ?? 'none');
+        $this->flashSaved('letter', $saved instanceof CoverLetter ? __('letter.saved') : __('letter.removed'));
     }
 
     public function suggestLetter(RequestLetterSuggestions $suggest): void
@@ -162,12 +224,35 @@ new #[Layout('layouts.app')] class extends Component
         </dl></section>
         @foreach(['benefits','responsibilities','requirements'] as $field)<section class="panel detail-panel"><h2>{{ __('jobs.'.$field) }}</h2>@if($job->listItems($field))<ul class="detail-list">@foreach($job->listItems($field) as $item)<li>{{ $item }}</li>@endforeach</ul>@else<p class="preserve-text">{{ __('jobs.nothing_added') }}</p>@endif</section>@endforeach
         <section class="panel detail-panel"><h2>{{ __('jobs.notes') }}</h2><p class="preserve-text">{{ $job->notes ?: __('jobs.nothing_added') }}</p></section>
-        <section class="panel detail-panel" id="letter" @if($this->letterPending) wire:poll.5s @endif><h2>{{ __('letter.heading') }}</h2><p class="field-hint">{{ __('letter.intro') }}</p>
-            <flux:textarea wire:model="letterBody" rows="14" :label="__('letter.body')" />@error('letterBody')<p role="alert" class="text-red-700">{{ $message }}</p>@enderror
-            <input type="file" wire:model="letterFile" accept=".txt,.md,text/plain,text/markdown" aria-label="{{ __('letter.upload') }}">@error('letterFile')<p role="alert" class="text-red-700">{{ $message }}</p>@enderror
-            <div class="badges"><flux:button wire:click="saveLetter" variant="primary" wire:loading.attr="disabled">{{ __('letter.save') }}</flux:button>
-            @if($this->letter)<flux:button href="{{ route('opportunities.cover-letter', $job) }}" icon="arrow-down-tray">{{ __('letter.pdf') }}</flux:button><flux:button wire:click="suggestLetter" wire:loading.attr="disabled" :disabled="$this->letterPending">{{ $this->letterPending ? __('letter.suggest_working') : __('letter.suggest') }}</flux:button>@endif</div>
-            @if($this->letter?->suggestions)<h3>{{ __('letter.suggestions') }}</h3><p class="field-hint">{{ __('letter.suggestions_note', ['when' => $this->letter->suggested_at?->diffForHumans()]) }}</p><p class="preserve-text">{{ $this->letter->suggestions }}</p>@endif
+        <section class="panel detail-panel materials" id="materials" @if($this->letterPending || $this->applyPending) wire:poll.5s @endif><h2>{{ __('materials.heading') }}</h2><p class="field-hint">{{ __('materials.intro') }}</p>
+            <div class="badges" role="tablist">@foreach(['resume' => 'tab_resume', 'letter' => 'tab_letter'] as $key => $label)<flux:button role="tab" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" wire:click="$set('tab', '{{ $key }}')" :variant="$tab === $key ? 'primary' : 'ghost'">{{ __('materials.'.$label) }}</flux:button>@endforeach</div>
+            @foreach(['resume' => 'resumeBody', 'letter' => 'letterBody'] as $kind => $model)
+            @if($tab === $kind)
+            @php($versionProp = $kind.'Version')
+            @php($options = $this->versions($kind))
+            <div role="tabpanel" id="materials-{{ $kind }}">
+                <flux:select wire:model.live="{{ $versionProp }}" :label="__('materials.version')">
+                    @foreach($options as $option)<option value="{{ $option }}">{{ __('materials.version_'.$option) }}</option>@endforeach
+                    @if($kind === 'letter')<option value="none">{{ __('materials.version_none') }}</option>@endif
+                    @if($options === [] && $kind === 'resume')<option value="none">{{ __('materials.unavailable') }}</option>@endif
+                </flux:select>
+                @if($this->{$versionProp} === 'none')<p class="field-hint">{{ $kind === 'letter' ? __('materials.none_note') : __('materials.resume_none_note') }}</p>
+                @else<div class="badges"><flux:button href="{{ route('opportunities.material', [$job, $kind, $this->{$versionProp}]) }}" target="_blank" icon="eye">{{ __('materials.preview') }}</flux:button><flux:button href="{{ route('opportunities.material', [$job, $kind, $this->{$versionProp}, 'download' => 1]) }}" icon="arrow-down-tray">{{ __('materials.download') }}</flux:button></div>@endif
+                @if(! in_array('generated', $options, true))<p class="field-hint">{{ __('materials.generated_missing') }}</p>@endif
+                <flux:textarea wire:model="{{ $model }}" rows="14" :label="$kind === 'resume' ? __('materials.resume_body') : __('letter.body')" />@error($model)<p role="alert" class="text-red-700">{{ $message }}</p>@enderror
+                <details><summary>{{ __('materials.help_title') }}</summary><p class="field-hint">{{ __('materials.help') }}</p></details>
+                @if($kind === 'letter')<input type="file" wire:model="letterFile" accept=".txt,.md,text/plain,text/markdown" aria-label="{{ __('letter.upload') }}">@error('letterFile')<p role="alert" class="text-red-700">{{ $message }}</p>@enderror @endif
+                <div class="badges"><flux:button wire:click="{{ $kind === 'resume' ? 'saveResume' : 'saveLetter' }}" variant="primary" wire:loading.attr="disabled">{{ $kind === 'resume' ? __('materials.save_resume') : __('letter.save') }}</flux:button>
+                @if($kind === 'letter' && $this->letter)<flux:button wire:click="suggestLetter" wire:loading.attr="disabled" :disabled="$this->letterPending">{{ $this->letterPending ? __('letter.suggest_working') : __('letter.suggest') }}</flux:button>@endif</div>
+                @if($kind === 'letter' && $this->letter?->suggestions)<h3>{{ __('letter.suggestions') }}</h3><p class="field-hint">{{ __('letter.suggestions_note', ['when' => $this->letter->suggested_at?->diffForHumans()]) }}</p><p class="preserve-text">{{ $this->letter->suggestions }}</p>@endif
+            </div>
+            @endif
+            @endforeach
+            @if(App\Support\AgentWorker::online() || $this->applyRun)
+                <h3>{{ __('materials.run_title') }}</h3><p class="field-hint">{{ __('jobs.apply_hint') }}</p>
+                @if($this->applyRun)<p><span class="status-badge link-{{ $this->applyRun->status->value }}">{{ $this->applyRun->status->label() }}</span> {{ $this->applyRun->message }}</p>@endif
+                @if(App\Support\AgentWorker::online() && app(App\Actions\RequestAgentApply::class)->eligible($job))<button type="button" wire:click="generateApplication" class="archive-button" wire:loading.attr="disabled" @disabled($this->applyPending)>{{ $this->applyPending ? __('jobs.apply_working') : __('jobs.apply_run') }}</button>@endif
+            @endif
         </section>
         @if($job->extra_fields)<section class="panel detail-panel"><h2>{{ __('jobs.extra_fields') }}</h2><dl class="detail-facts">@foreach($job->extra_fields as $key => $value)<div><dt>{{ ucfirst(str_replace('_', ' ', $key)) }}</dt><dd>{{ $value ?? '—' }}</dd></div>@endforeach</dl></section>@endif
     </div><aside class="detail-sidebar">
@@ -176,12 +261,6 @@ new #[Layout('layouts.app')] class extends Component
         @if($job->application_url)<p class="field-hint">@if($job->link_checked_at)<span class="status-badge link-{{ $job->link_status === 'ok' ? 'done' : 'failed' }}">{{ App\Enums\LinkResult::tryFrom((string) $job->link_status)?->label() }}</span> {{ __('jobs.link_last_checked', ['when' => $job->link_checked_at->diffForHumans()]) }}@else{{ __('jobs.link_never_checked') }}@endif</p><button type="button" wire:click="checkLink" class="archive-button" wire:loading.attr="disabled">{{ __('jobs.link_check_one') }}</button>@endif
         </section>
         <section class="panel detail-panel" @if($this->scorePending) wire:poll.5s @endif><h2>{{ __('jobs.rankings') }}</h2>@foreach(['desirability','skill_match'] as $field)<div class="detail-ranking"><span>{{ __('jobs.'.$field) }}</span><strong class="score-pill score-{{ $job->{$field} ?? 'none' }}">{{ $job->{$field} ? $job->{$field}.' / 5' : __('jobs.unscored') }}</strong></div><p class="preserve-text muted">{{ $job->{$field.'_notes'} }}</p>@endforeach<button type="button" wire:click="scoreWithAi" class="archive-button" wire:loading.attr="disabled" @disabled($this->scorePending)>{{ $this->scorePending ? __('jobs.score_one_working') : __('jobs.score_one') }}</button></section>
-        @if(App\Support\AgentWorker::online() || $this->applyRun)
-            <section class="panel detail-panel" @if($this->applyPending) wire:poll.5s @endif><h2>{{ __('jobs.apply_title') }}</h2><p class="field-hint">{{ __('jobs.apply_hint') }}</p>
-            @if($this->applyRun)<p><span class="status-badge link-{{ $this->applyRun->status->value }}">{{ $this->applyRun->status->label() }}</span> {{ $this->applyRun->message }}</p>@endif
-            @foreach(App\Support\AgentFiles::available($job) as $file)<a class="external-link" href="{{ route('opportunities.application-file', [$job, $file]) }}" target="_blank" rel="noopener noreferrer">{{ __('jobs.apply_file_'.$file) }} ↗</a> @endforeach
-            @if(App\Support\AgentWorker::online() && app(App\Actions\RequestAgentApply::class)->eligible($job))<button type="button" wire:click="generateApplication" class="archive-button" wire:loading.attr="disabled" @disabled($this->applyPending)>{{ $this->applyPending ? __('jobs.apply_working') : __('jobs.apply_run') }}</button>@endif</section>
-        @endif
         <section class="panel detail-panel"><h2>{{ __('jobs.status_history') }}</h2><ol class="history">@forelse($job->events as $event)<li><strong>{{ $event->to_status->label() }}</strong><span>{{ $event->created_at->format('M j, Y · g:i a') }}</span></li>@empty<li>{{ __('jobs.no_history') }}</li>@endforelse</ol></section>
         @if(EmbeddingSettings::enabled())
             @foreach(['relatedJobs' => 'related_jobs', 'relatedLetters' => 'related_letters'] as $property => $label)
@@ -189,7 +268,7 @@ new #[Layout('layouts.app')] class extends Component
                     <h2>{{ __('settings.'.$label) }}</h2>
                     <ul class="detail-list">
                         @forelse($this->{$property} as $match)
-                            <li><a class="role-link" href="/opportunities/{{ $match['opportunity']->id }}{{ $property === 'relatedLetters' ? '#letter' : '' }}" wire:navigate>{{ $match['opportunity']->company }} — {{ $match['opportunity']->title }}</a></li>
+                            <li><a class="role-link" href="/opportunities/{{ $match['opportunity']->id }}{{ $property === 'relatedLetters' ? '?materials=letter#materials' : '' }}" wire:navigate>{{ $match['opportunity']->company }} — {{ $match['opportunity']->title }}</a></li>
                         @empty
                             <li>{{ __('settings.related_empty') }}</li>
                         @endforelse
