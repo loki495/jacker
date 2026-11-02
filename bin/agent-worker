@@ -28,7 +28,7 @@ COMMON_TOOLS="Read,Glob,Grep,WebFetch,WebSearch,Agent,Skill"
 STATE_WRITES="job_scraper/**,job_search_tracker.csv"
 APPLY_WRITES="cv/**,cover_letters/**,documents/**,company_research/**,job_search_tracker.csv"
 APPLY_BASH="Bash(cd cv),Bash(cd cover_letters),Bash(cd ..),Bash(cd ../cover_letters),Bash(cd ../cv),Bash(lualatex:*),Bash(xelatex:*),Bash(rm -f cv/*),Bash(rm -f cover_letters/*)"
-DENIED_TOOLS="Bash(git:*),Bash(curl:*),Bash(rtk git:*),Bash(rtk curl:*),Bash(rtk wget:*),Bash(wget:*),Bash(sudo:*),Bash(docker:*),Read(~/.config/**),Read(~/.dotfiles-private/**)"
+DENIED_TOOLS="Bash(git:*),Bash(curl:*),Bash(rtk git:*),Bash(rtk curl:*),Bash(rtk wget:*),Bash(wget:*),Bash(sudo:*),Bash(docker:*),Read(~/.config/**),Read(~/.dotfiles-private/**),Read(~/.ssh/**),Read(~/.aws/**),Read(~/.gnupg/**),Read(~/.claude/**),Read(**/.env),Read(**/.env.*)"
 # The repo's own .claude/settings.json allow list is not applied to these headless sessions, so it is passed explicitly (and stays the one source).
 repo_allow() { jq -r '[.permissions.allow[]? | select(contains(",") | not)] | join(",")' "$REPO/.claude/settings.json" 2>/dev/null || true; }
 with_writes() { local t="" w; for w in ${1//,/ }; do t+="Write($w),Edit($w),"; done; printf '%s' "${t%,}"; }
