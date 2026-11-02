@@ -38,6 +38,14 @@ final class CoverLetterSettings
         return $contact;
     }
 
+    /** @return list<string> email, phone, location and profile links that are set, for the PDF header */
+    public static function headerLines(): array
+    {
+        $contact = self::contact();
+
+        return array_values(array_filter([$contact['email'] ?? null, $contact['phone'] ?? null, $contact['location'] ?? null, ...array_values(ProfileLinks::all())]));
+    }
+
     public static function save(string $key, string $value): void
     {
         if ($value === '') {
