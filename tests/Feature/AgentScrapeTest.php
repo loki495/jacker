@@ -184,3 +184,18 @@ it('removes the resume with its job', function (): void {
     $job->delete();
     expect(Resume::query()->count())->toBe(0);
 });
+
+it('records whether the worker found the general resume and exposes the copied file', function (): void {
+    expect(AgentWorker::generalResumeMissing())->toBeFalse();
+    $this->artisan('agent:register', ['--general' => 'missing'])->assertSuccessful();
+    expect(AgentWorker::generalResumeMissing())->toBeTrue();
+    $this->artisan('agent:register', ['--general' => 'ok'])->assertSuccessful();
+    expect(AgentWorker::generalResumeMissing())->toBeFalse();
+
+    $path = storage_path('app/agent/general/resume.pdf');
+    expect(AgentFiles::generalResume())->toBeNull();
+    @mkdir(dirname($path), 0775, true);
+    file_put_contents($path, '%PDF-1.4');
+    expect(AgentFiles::generalResume())->toBe($path);
+    unlink($path);
+});

@@ -29,4 +29,12 @@ final class AgentFiles
     {
         return array_values(array_filter(array_keys(self::NAMES), fn (string $file): bool => is_file(self::path($opportunity, $file))));
     }
+
+    /** The general (not job-specific) resume PDF the host worker copies in; the version picker offers it as "general" when this is not null. */
+    public static function generalResume(): ?string
+    {
+        $path = storage_path('app/agent/general/resume.pdf');
+
+        return is_file($path) ? $path : null;
+    }
 }

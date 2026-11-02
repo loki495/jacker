@@ -116,10 +116,24 @@ Finish with one line of JSON and nothing after it: {\"resume\": \"cv/<file>.pdf\
     artisan agent:complete "$id" --message="Drafted $(basename "$resume") and $(basename "$letter")${filled:+; preloaded $filled}"
 }
 
+# Copies the general resume (the master PDF kept outside the app) into Jacker's storage so the version picker can offer it; Jacker itself never
+# reads outside storage. GENERAL_RESUME overrides the path. Reports ok/missing with the heartbeat; a missing source also removes a stale copy.
+sync_general_resume() {
+    local src="${GENERAL_RESUME:-$HOME/Documents/andres/resume/current/php/Andres-Crucitti-PHP-Laravel-Developer.pdf}" dest="$APP_DIR/storage/app/agent/general/resume.pdf"
+    if [ -f "$src" ] && [ ! -L "$src" ]; then
+        mkdir -p "$(dirname "$dest")"; cmp -s -- "$src" "$dest" || cp -- "$src" "$dest"
+        artisan agent:register --general=ok
+    else
+        echo "general resume not found at $src" >&2; rm -f "$dest"
+        artisan agent:register --general=missing
+    fi
+}
+
 work_one() {
     local job id kind
     ready || return 1
     artisan agent:register
+    sync_general_resume
     job="$(artisan agent:claim)"
     [ -n "$job" ] || return 1
     id="$(jq -r .id <<<"$job")"; kind="$(jq -r .kind <<<"$job")"
