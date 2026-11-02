@@ -33,6 +33,10 @@ Keys that collide ignoring case, have trailing whitespace, or are empty use the
 reserved reversible `extra-hex:` header prefix followed by the UTF-8 key's hexadecimal
 bytes. This keeps the exported union valid without changing custom field names.
 Internal IDs, timestamps and the derived normalized URL are not editable CSV fields.
+The export also carries three read-only columns after the core fields: `resume_choice`,
+`letter_choice` and `materials_used_at` (ISO 8601), the versions recorded by "Mark as used"
+on the job page. The importer ignores them: they are never mapped, never stored as extra
+fields and never applied, so an export reimport cannot fake a record of what was sent.
 Values beginning with spreadsheet operators after whitespace/control characters get
 an apostrophe prefix; this protective apostrophe remains literal on reimport. Nested
 extra values are exported as JSON strings. An identical export reimport skips exact

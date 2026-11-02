@@ -16,6 +16,9 @@ final class CsvMapping
         'skill_match_notes', 'desirability_notes', 'archived_at',
     ];
 
+    /** Exported for reference but set only by "Mark as used": an import ignores these columns. */
+    public const array READ_ONLY = ['resume_choice', 'letter_choice', 'materials_used_at'];
+
     /**
      * @param  list<string>  $headers
      * @return array<int, string>
@@ -58,7 +61,7 @@ final class CsvMapping
         }
         $keys = [];
         foreach ($headers as $index => $header) {
-            if ($mapping[$index] === '') {
+            if ($mapping[$index] === '' && ! in_array($header, self::READ_ONLY, true)) {
                 $key = $this->extraKey($header);
                 if (($key === '' && $header !== 'extra-hex:') || in_array($key, $keys, true)) {
                     throw ValidationException::withMessages(['mapping' => __('csv.mapping_extras')]);
@@ -79,6 +82,9 @@ final class CsvMapping
         $data = ['extra_fields' => []];
         foreach ($headers as $index => $header) {
             $field = $mapping[$index];
+            if ($field === '' && in_array($header, self::READ_ONLY, true)) {
+                continue;
+            }
             if ($field === '') {
                 $key = $this->extraKey($header);
                 $data['extra_fields'][$key] = $row[$index];

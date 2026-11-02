@@ -34,15 +34,15 @@ final class CsvExport
             if ($stream === false) {
                 throw new \RuntimeException('Unable to open the CSV output stream.');
             }
-            fputcsv($stream, [...CsvMapping::FIELDS, ...$headers], ',', '"', '');
+            fputcsv($stream, [...CsvMapping::FIELDS, ...CsvMapping::READ_ONLY, ...$headers], ',', '"', '');
             foreach (Opportunity::query()->orderBy('id')->cursor() as $opportunity) {
                 $values = [];
-                foreach (CsvMapping::FIELDS as $field) {
+                foreach ([...CsvMapping::FIELDS, ...CsvMapping::READ_ONLY] as $field) {
                     $value = $opportunity->getAttribute($field);
                     if ($value instanceof BackedEnum) {
                         $value = $value->value;
                     } elseif ($value instanceof DateTimeInterface) {
-                        $value = $value->format($field === 'archived_at' ? DATE_ATOM : 'Y-m-d');
+                        $value = $value->format(in_array($field, ['archived_at', 'materials_used_at'], true) ? DATE_ATOM : 'Y-m-d');
                     } elseif (is_bool($value)) {
                         $value = $value ? 'yes' : 'no';
                     }

@@ -36,6 +36,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deadline
  * @property Carbon|null $follow_up_at
  * @property Carbon|null $archived_at
+ * @property string|null $resume_choice
+ * @property string|null $letter_choice
+ * @property Carbon|null $materials_used_at
  * @property array<string, mixed>|null $extra_fields
  */
 class Opportunity extends Model
@@ -57,7 +60,7 @@ class Opportunity extends Model
             'salary_min' => 'decimal:2', 'salary_max' => 'decimal:2',
             'has_applied' => 'boolean', 'applied_at' => 'date',
             'deadline' => 'date', 'follow_up_at' => 'date',
-            'archived_at' => 'datetime', 'link_checked_at' => 'datetime', 'extra_fields' => 'array',
+            'archived_at' => 'datetime', 'materials_used_at' => 'datetime', 'link_checked_at' => 'datetime', 'extra_fields' => 'array',
             'skill_match' => 'integer', 'desirability' => 'integer',
         ];
     }

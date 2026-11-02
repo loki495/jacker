@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Actions\ArchiveOpportunity;
 use App\Actions\ChangeOpportunityStatus;
 use App\Actions\FindRelatedContent;
+use App\Actions\MarkMaterialsUsed;
 use App\Actions\QueueLinkChecks;
 use App\Actions\RequestAgentApply;
 use App\Actions\RequestLetterSuggestions;
@@ -81,6 +82,14 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         return $found;
+    }
+
+    public function markUsed(MarkMaterialsUsed $mark): void
+    {
+        $this->resetErrorBag('used');
+        $mark->handle($this->opportunity, $this->resumeVersion, $this->letterVersion);
+        unset($this->opportunity);
+        session()->flash('message', __('materials.used_done'));
     }
 
     private function flashSaved(string $kind, string $saved): void
@@ -248,6 +257,10 @@ new #[Layout('layouts.app')] class extends Component
             </div>
             @endif
             @endforeach
+            <h3>{{ __('materials.used_heading') }}</h3><p class="field-hint">{{ __('materials.used_hint') }}</p>
+            @if($job->materials_used_at)<p>{{ __('materials.used_record', ['when' => $job->materials_used_at->format('M j, Y g:i a'), 'resume' => $job->resume_choice ?? __('materials.used_none'), 'letter' => $job->letter_choice ?? __('materials.used_none')]) }}</p><div class="badges">@if($job->resume_choice)<flux:button href="{{ route('opportunities.used', [$job, 'resume']) }}" target="_blank" icon="eye">{{ __('materials.used_open_resume') }}</flux:button>@endif @if($job->letter_choice)<flux:button href="{{ route('opportunities.used', [$job, 'letter']) }}" target="_blank" icon="eye">{{ __('materials.used_open_letter') }}</flux:button>@endif</div>@endif
+            @error('used')<p role="alert" class="text-red-700">{{ $message }}</p>@enderror
+            <flux:button wire:click="markUsed" wire:confirm="{{ __('materials.used_hint') }}" wire:loading.attr="disabled">{{ __('materials.used_button') }}</flux:button>
             @if(App\Support\AgentWorker::online() || $this->applyRun)
                 <h3>{{ __('materials.run_title') }}</h3><p class="field-hint">{{ __('jobs.apply_hint') }}</p>
                 @if($this->applyRun)<p><span class="status-badge link-{{ $this->applyRun->status->value }}">{{ $this->applyRun->status->label() }}</span> {{ $this->applyRun->message }}</p>@endif
