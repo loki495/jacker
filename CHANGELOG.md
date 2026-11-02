@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Application materials: one detail-page section with Resume and Cover letter tabs (Markdown editing, preview, PDF download, version picker with generated, edited and general resume), a Markdown to PDF renderer (Liberation Sans, real text layer), and Mark as used, which freezes the chosen PDFs and records the choice; the three new columns export read-only in CSV and are ignored on import.
+- Private search: the agent worker syncs the general resume into storage and writes resume and letter Markdown the editors preload from.
+
 - Dependencies: patch Symfony Mime for [CVE-2026-45070](https://github.com/symfony/symfony/security/advisories/GHSA-vqc8-7275-q272).
 
 - Optional Laravel AI provider processing for extraction, grading and letter suggestions, with per-feature Settings and the host bridge as default.
