@@ -199,3 +199,8 @@ it('records whether the worker found the general resume and exposes the copied f
     expect(AgentFiles::generalResume())->toBe($path);
     unlink($path);
 });
+
+it('keeps the agent file paths off the real storage directory', function (): void {
+    expect(storage_path('app/agent'))->not->toStartWith(dirname(__DIR__, 2).'/storage')
+        ->and(AgentFiles::generalResume())->toBeNull();
+});
