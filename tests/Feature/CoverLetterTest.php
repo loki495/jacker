@@ -15,6 +15,7 @@ use App\Support\CoverLetterSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
+use Smalot\PdfParser\Parser;
 
 uses(RefreshDatabase::class);
 
@@ -117,6 +118,28 @@ it('downloads the PDF with the header from settings and 404s without a letter', 
     CoverLetterSettings::save('profile.name', 'Ada Lovelace');
     $response = $this->get('/opportunities/'.$job->id.'/cover-letter.pdf')->assertOk()->assertHeader('content-type', 'application/pdf');
     expect($response->headers->get('content-disposition'))->toContain('cover-letter-acme-co.pdf')->and(substr($response->getContent(), 0, 4))->toBe('%PDF');
-    $this->view('pdf.cover-letter', ['letter' => CoverLetter::query()->firstOrFail(), 'contact' => ['name' => 'Ada Lovelace'], 'lines' => ['ada@example.com']])
-        ->assertSee('Ada Lovelace')->assertSee('ada@example.com')->assertSee('Dear Acme');
+    preg_match_all('#/BaseFont\s*/(?:[A-Z]{6}\+)?([A-Za-z-]+)#', $response->getContent(), $fonts);
+    expect($fonts[1])->not->toBeEmpty()->and(implode(' ', $fonts[1]))->not->toContain('DejaVu');
+    foreach ($fonts[1] as $font) {
+        expect($font)->toStartWith('LiberationSans');
+    }
+    $text = (new Parser)->parseContent($response->getContent())->getText();
+    expect($text)->toContain('Ada Lovelace')->toContain('Dear Acme');
+});
+
+it('refuses to render a letter with a banned word', function (): void {
+    $job = letterJob();
+    app(SaveCoverLetter::class)->handle($job, 'See my CV');
+    $this->get('/opportunities/'.$job->id.'/cover-letter.pdf')->assertStatus(422);
+});
+
+it('builds the PDF header lines from the set contact fields and profile links only', function (): void {
+    expect(CoverLetterSettings::headerLines())->toBe([]);
+
+    CoverLetterSettings::save('profile.name', 'Ada Lovelace');
+    CoverLetterSettings::save('profile.email', 'ada@example.com');
+    CoverLetterSettings::save('profile.location', 'London');
+    CoverLetterSettings::save('profile.github', 'https://github.com/ada');
+
+    expect(CoverLetterSettings::headerLines())->toBe(['ada@example.com', 'London', 'https://github.com/ada']);
 });
