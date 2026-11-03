@@ -189,3 +189,192 @@ it('applies the same apply-link rule as the app', function (string $url): void {
     'at the length limit' => 'https://example.com/'.str_repeat('a', 480),
     'over the length limit' => 'https://example.com/'.str_repeat('a', 481),
 ]);
+
+// Stubs for poppler: FONTS holds the pdffonts rows, TEXT what pdftotext prints.
+function stubPoppler(string $dir): string
+{
+    $bin = $dir.'-poppler';
+    File::ensureDirectoryExists($bin);
+    file_put_contents($bin.'/pdffonts', "#!/usr/bin/env bash\nprintf 'name type emb\\n----- ---- ---\\n'; printf '%b' \"\$FONTS\"\n");
+    file_put_contents($bin.'/pdftotext', "#!/usr/bin/env bash\nprintf '%s\\n' \"\$TEXT\"\n");
+    chmod($bin.'/pdffonts', 0755);
+    chmod($bin.'/pdftotext', 0755);
+
+    return $bin;
+}
+
+it('accepts PDFs whose text fonts are Liberation Sans (icon fonts aside) and whose text is clean', function (): void {
+    $bin = stubPoppler($this->app_dir);
+    [$code, $out] = workerShell($this->app_dir, 'style_problem a.pdf b.pdf', ['PATH' => $bin.':'.getenv('PATH'), 'TEXT' => 'Senior developer. Resume.', 'FONTS' => "ABCDEF+LiberationSans TrueType yes\nABCDEF+LiberationSans-Bold TrueType yes\nGHIJKL+FontAwesome6Free-Solid TrueType yes\n"]);
+
+    expect($code)->toBe(0)->and($out)->toBe('');
+    File::deleteDirectory($bin);
+});
+
+it('rejects a PDF that uses another text font and names it', function (): void {
+    $bin = stubPoppler($this->app_dir);
+    [$code, $out] = workerShell($this->app_dir, 'style_problem /x/resume.pdf', ['PATH' => $bin.':'.getenv('PATH'), 'TEXT' => 'Fine text', 'FONTS' => "ABCDEF+LiberationSans TrueType yes\nGHIJKL+DejaVuSerif TrueType yes\n"]);
+
+    expect($code)->toBe(1)->and(trim($out))->toBe('resume.pdf uses a font other than Liberation Sans: DejaVuSerif');
+    File::deleteDirectory($bin);
+});
+
+it('rejects a PDF whose text says CV, References, curriculum or upon request, in any case', function (string $text): void {
+    $bin = stubPoppler($this->app_dir);
+    [$code, $out] = workerShell($this->app_dir, 'style_problem /x/letter.pdf', ['PATH' => $bin.':'.getenv('PATH'), 'TEXT' => $text, 'FONTS' => "ABCDEF+LiberationSans TrueType yes\n"]);
+
+    expect($code)->toBe(1)->and(trim($out))->toBe('letter.pdf mentions CV or References');
+    File::deleteDirectory($bin);
+})->with(['My CV is attached', 'REFERENCES', 'References available', 'Available upon request', 'Curriculum vitae']);
+
+it('does not mistake words that merely contain cv for the banned CV', function (): void {
+    $bin = stubPoppler($this->app_dir);
+    [$code] = workerShell($this->app_dir, 'style_problem a.pdf', ['PATH' => $bin.':'.getenv('PATH'), 'TEXT' => 'Worked on the cvs pipeline and an HTMLcv parser', 'FONTS' => "ABCDEF+LiberationSans TrueType yes\n"]);
+
+    expect($code)->toBe(0);
+    File::deleteDirectory($bin);
+});
+
+it('stops at the first PDF that breaks the style rules', function (): void {
+    $bin = stubPoppler($this->app_dir);
+    [$code, $out] = workerShell($this->app_dir, 'style_problem /x/first.pdf /x/second.pdf', ['PATH' => $bin.':'.getenv('PATH'), 'TEXT' => 'Contact me, references on request', 'FONTS' => "ABCDEF+LiberationSans TrueType yes\n"]);
+
+    expect($code)->toBe(1)->and(trim($out))->toBe('first.pdf mentions CV or References');
+    File::deleteDirectory($bin);
+});
+
+// Research session stub: MODE decides what it leaves behind as research.md in its --workdir.
+function stubResearcher(string $dir): string
+{
+    $bin = $dir.'-researcher';
+    File::ensureDirectoryExists($bin);
+    file_put_contents($bin.'/sessioneer', <<<'SH'
+#!/usr/bin/env bash
+cat >/dev/null
+while [ $# -gt 0 ]; do [ "$1" = --workdir ] && wd="$2"; shift; done
+case "$MODE" in
+    big) yes 'research line' | head -c 100000 >"$wd/research.md" ;;
+    symlink) ln -s "$TARGET" "$wd/research.md" ;;
+    empty) : >"$wd/research.md" ;;
+    ok) printf 'Acme makes anvils.' >"$wd/research.md" ;;
+esac
+echo done
+SH);
+    chmod($bin.'/sessioneer', 0755);
+
+    return $bin;
+}
+
+it('caps research.md at the byte limit and leaves no temp file', function (): void {
+    $bin = stubResearcher($this->app_dir);
+    $dir = $this->app_dir.'/scratch';
+    mkdir($dir);
+    workerShell($this->app_dir, "research_one '$dir' Acme", ['PATH' => $bin.':'.getenv('PATH'), 'MODE' => 'big', 'AGENT_RESEARCH_MAX_BYTES' => '1000']);
+
+    expect(filesize($dir.'/research.md'))->toBe(1000)->and(glob($dir.'/*'))->toBe([$dir.'/research.md']);
+    File::deleteDirectory($bin);
+});
+
+it('keeps a small research.md as it is', function (): void {
+    $bin = stubResearcher($this->app_dir);
+    $dir = $this->app_dir.'/scratch';
+    mkdir($dir);
+    workerShell($this->app_dir, "research_one '$dir' Acme", ['PATH' => $bin.':'.getenv('PATH'), 'MODE' => 'ok']);
+
+    expect(file_get_contents($dir.'/research.md'))->toBe('Acme makes anvils.');
+    File::deleteDirectory($bin);
+});
+
+it('discards a research.md that is a symlink and never follows it', function (): void {
+    $bin = stubResearcher($this->app_dir);
+    $dir = $this->app_dir.'/scratch';
+    mkdir($dir);
+    file_put_contents($this->app_dir.'/secret', 'top secret');
+    workerShell($this->app_dir, "research_one '$dir' Acme", ['PATH' => $bin.':'.getenv('PATH'), 'MODE' => 'symlink', 'TARGET' => $this->app_dir.'/secret']);
+
+    expect(file_exists($dir.'/research.md') || is_link($dir.'/research.md'))->toBeFalse()->and(file_get_contents($this->app_dir.'/secret'))->toBe('top secret');
+    File::deleteDirectory($bin);
+});
+
+it('discards an empty research.md', function (): void {
+    $bin = stubResearcher($this->app_dir);
+    $dir = $this->app_dir.'/scratch';
+    mkdir($dir);
+    workerShell($this->app_dir, "research_one '$dir' Acme", ['PATH' => $bin.':'.getenv('PATH'), 'MODE' => 'empty']);
+
+    expect(file_exists($dir.'/research.md'))->toBeFalse();
+    File::deleteDirectory($bin);
+});
+
+// scrape_one with run_session and artisan stubbed: STUB_CSV=1 makes the "session" write the CSV, IMPORT_RC the csv:import exit code.
+const SCRAPE_STUBS = 'run_session() { cat >/dev/null; [ "${STUB_CSV:-0}" = 1 ] && echo "company,title" >"$APP_DIR/storage/app/agent/scrape-3.csv"; return "${STUB_RC:-0}"; }; '
+    .'artisan() { echo "artisan $*" >>"$APP_DIR/calls"; if [ "$1" = csv:import ]; then echo "noise"; echo "${IMPORT_LINE:-Imported 2, skipped 0.}"; return "${IMPORT_RC:-0}"; fi; }; ';
+
+it('hands the scraped CSV to csv:import by its in-container path and completes with the last output line', function (): void {
+    workerShell($this->app_dir, SCRAPE_STUBS.'scrape_one 3', ['STUB_CSV' => '1']);
+    $out = file_get_contents($this->app_dir.'/calls');
+
+    expect($out)->toContain('artisan csv:import /var/www/html/storage/app/agent/scrape-3.csv')->toContain('artisan agent:complete 3 --message=Imported 2, skipped 0.')->not->toContain('--fail');
+});
+
+it('fails the request with the last csv:import line when the import is rejected', function (): void {
+    workerShell($this->app_dir, SCRAPE_STUBS.'scrape_one 3', ['STUB_CSV' => '1', 'IMPORT_RC' => '1', 'IMPORT_LINE' => 'The CSV is missing or exceeds the upload size limit.']);
+    $out = file_get_contents($this->app_dir.'/calls');
+
+    expect($out)->toContain('artisan agent:complete 3 --fail --message=The CSV is missing or exceeds the upload size limit.');
+});
+
+it('fails the request when the session wrote no CSV, ignoring a stale one from an earlier run', function (): void {
+    $dir = $this->app_dir.'/storage/app/agent';
+    mkdir($dir, 0755, true);
+    file_put_contents($dir.'/scrape-3.csv', "stale\n");
+    workerShell($this->app_dir, SCRAPE_STUBS.'scrape_one 3', []);
+    $out = file_get_contents($this->app_dir.'/calls');
+
+    expect($out)->toContain('artisan agent:complete 3 --fail --message=the agent wrote no CSV')->not->toContain('csv:import')->and(file_exists($dir.'/scrape-3.csv'))->toBeFalse();
+});
+
+it('fails the request when the scrape session itself fails', function (): void {
+    workerShell($this->app_dir, SCRAPE_STUBS.'scrape_one 3', ['STUB_CSV' => '1', 'STUB_RC' => '1']);
+    $out = file_get_contents($this->app_dir.'/calls');
+
+    expect($out)->toContain('artisan agent:complete 3 --fail --message=the agent session failed or timed out')->not->toContain('csv:import');
+});
+
+it('copies the general resume into storage and reports ok, copying again only when it changed', function (): void {
+    $src = $this->app_dir.'-general.pdf';
+    $dest = $this->app_dir.'/storage/app/agent/general/resume.pdf';
+    file_put_contents($src, '%PDF one');
+    [, $out] = workerShell($this->app_dir, 'sync_general_resume', ['GENERAL_RESUME' => $src]);
+    expect($out)->toContain('artisan agent:register --general=ok')->and(file_get_contents($dest))->toBe('%PDF one');
+
+    touch($dest, 1000000000);
+    workerShell($this->app_dir, 'sync_general_resume', ['GENERAL_RESUME' => $src]);
+    expect(filemtime($dest))->toBe(1000000000);
+
+    file_put_contents($src, '%PDF two');
+    workerShell($this->app_dir, 'sync_general_resume', ['GENERAL_RESUME' => $src]);
+    expect(file_get_contents($dest))->toBe('%PDF two');
+    @unlink($src);
+});
+
+it('reports the general resume missing, says so on stderr and removes a stale copy', function (): void {
+    $dest = $this->app_dir.'/storage/app/agent/general/resume.pdf';
+    mkdir(dirname($dest), 0755, true);
+    file_put_contents($dest, 'stale');
+    [, $out] = workerShell($this->app_dir, 'sync_general_resume 2>&1', ['GENERAL_RESUME' => $this->app_dir.'-nowhere.pdf']);
+
+    expect($out)->toContain('general resume not found at '.$this->app_dir.'-nowhere.pdf')->toContain('artisan agent:register --general=missing')->and(file_exists($dest))->toBeFalse();
+});
+
+it('does not take a symlinked general resume', function (): void {
+    $real = $this->app_dir.'-real.pdf';
+    $link = $this->app_dir.'-link.pdf';
+    file_put_contents($real, '%PDF');
+    symlink($real, $link);
+    [, $out] = workerShell($this->app_dir, 'sync_general_resume 2>&1', ['GENERAL_RESUME' => $link]);
+
+    expect($out)->toContain('--general=missing')->and(file_exists($this->app_dir.'/storage/app/agent/general/resume.pdf'))->toBeFalse();
+    @unlink($real);
+    @unlink($link);
+});

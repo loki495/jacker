@@ -37,7 +37,25 @@ it('skips invalid rows instead of blocking the import', function (): void {
 });
 
 it('fails with a message when the file is missing', function (): void {
-    $this->artisan('csv:import', ['path' => '/nonexistent.csv'])->assertFailed();
+    $this->artisan('csv:import', ['path' => '/nonexistent.csv'])->expectsOutputToContain(__('csv.missing_or_large'))->assertFailed();
+    expect(Opportunity::query()->count())->toBe(0);
+});
+
+it('skips a possible duplicate (same company, title and location, different link) and imports the rest', function (): void {
+    Opportunity::factory()->create(['company' => 'Acme', 'title' => 'Senior Laravel Developer', 'location' => 'Remote', 'application_url' => 'https://example.com/old']);
+    $path = importCsv("company,title,url,location\nacme,senior laravel developer,https://example.com/new,remote\nBeta,PHP Engineer,https://example.com/b,Los Angeles\n");
+
+    $this->artisan('csv:import', ['path' => $path])->assertSuccessful()->expectsOutputToContain('Imported 1, skipped 1.');
+
+    expect(Opportunity::query()->pluck('application_url')->all())->toContain('https://example.com/b')->not->toContain('https://example.com/new');
+    unlink($path);
+});
+
+it('names the skipped record and its errors for an invalid row', function (): void {
+    $path = importCsv("company,title,url,deadline\nAcme,Dev,https://example.com/a,not a date\n");
+
+    $this->artisan('csv:import', ['path' => $path])->expectsOutputToContain('Skipping record 2:')->assertSuccessful();
+    unlink($path);
 });
 
 it('queues link checks for imported jobs that have no requirements or responsibilities', function (): void {
