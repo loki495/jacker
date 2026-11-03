@@ -40,7 +40,7 @@ it('queues one run at a time, claims it and records the result', function (): vo
     $request = AiRequest::query()->firstOrFail();
     expect($request->kind)->toBe(AiRequest::KIND_SCRAPE)->and($request->opportunity_id)->toBeNull();
 
-    $this->artisan('agent:claim')->expectsOutput(json_encode(['id' => $request->id, 'kind' => 'scrape', 'opportunity_id' => null, 'url' => null, 'company' => null]))->assertSuccessful();
+    $this->artisan('agent:claim')->expectsOutput(json_encode(['id' => $request->id, 'kind' => 'scrape', 'opportunity_id' => null, 'url' => null, 'company' => null, 'title' => null]))->assertSuccessful();
     $this->artisan('agent:claim')->doesntExpectOutputToContain('scrape')->assertSuccessful();
     $this->artisan('agent:complete', ['id' => $request->id, '--message' => 'Imported 3'])->assertSuccessful();
     $this->artisan('agent:complete', ['id' => $request->id])->assertFailed();
@@ -65,7 +65,7 @@ it('queues a custom resume and letter for one job with a web link, once, and onl
     expect(app(RequestAgentApply::class)->handle($job))->toBeNull()->and(AiRequest::query()->where('kind', AiRequest::KIND_APPLY)->count())->toBe(1);
 
     $request = AiRequest::query()->firstOrFail();
-    $this->artisan('agent:claim')->expectsOutput(json_encode(['id' => $request->id, 'kind' => 'apply', 'opportunity_id' => $job->id, 'url' => 'https://example.com/jobs/1', 'company' => $job->company]))->assertSuccessful();
+    $this->artisan('agent:claim')->expectsOutput(json_encode(['id' => $request->id, 'kind' => 'apply', 'opportunity_id' => $job->id, 'url' => 'https://example.com/jobs/1', 'company' => $job->company, 'title' => $job->title]))->assertSuccessful();
 });
 
 it('refuses jobs without a plain http(s) link', function (string $url): void {

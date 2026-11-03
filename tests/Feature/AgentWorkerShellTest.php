@@ -152,7 +152,8 @@ it('gives the scrape and drafting sessions no network tool, reads limited to the
         ->and($scrapeTools)->toContain('Bash(bun run .agents/skills/a-search/cli/src/cli.ts:*)')->not->toContain('Bash(python3 tools/fetch_page.py:*)')
         ->and(array_values(array_filter($draftTools, fn (string $t): bool => str_starts_with($t, 'Read'))))->toBe(["Read(/$repo/**)", "Read(/$scratch/**)"])
         ->and($draftTools)->toContain('Bash(python3 tools/job_key.py:*)')->not->toContain('Bash(python3 tools/robots_check.py:*)')->not->toContain('Bash(python3 salary_lookup.py:*)')
-        ->and(implode(',', $draftTools))->not->toContain('bun run');
+        ->and(implode(',', $draftTools))->not->toContain('bun run')->not->toContain('lualatex')->not->toContain('xelatex')->not->toContain('Bash(cd')->not->toContain('Bash(rm');
+    expect(array_values(array_filter($draftTools, fn (string $t): bool => str_starts_with($t, 'Bash'))))->toBe(['Bash(python3 tools/job_key.py:*)']);
     File::deleteDirectory($bin);
 });
 
@@ -377,4 +378,115 @@ it('does not take a symlinked general resume', function (): void {
     expect($out)->toContain('--general=missing')->and(file_exists($this->app_dir.'/storage/app/agent/general/resume.pdf'))->toBeFalse();
     @unlink($real);
     @unlink($link);
+});
+
+// Stubs for the worker-side compile: engines write the PDF (or fail), logging their cwd and arguments; poppler tools report a clean Liberation Sans file.
+function stubCompileBin(string $dir): string
+{
+    $bin = $dir.'-cbin';
+    File::ensureDirectoryExists($bin);
+    foreach (['lualatex', 'xelatex'] as $engine) {
+        file_put_contents("$bin/$engine", <<<SH
+#!/usr/bin/env bash
+echo "$engine \$PWD \$*" >>"\$STUB_LOG/engine"
+last="\${@: -1}"; stem="\${last%.tex}"
+echo "log line for \$stem" >"\$stem.log"; echo x >"\$stem.aux"
+if [ "\$STUB_COMPILE_FAIL" = "\$stem" ]; then echo "! Undefined control sequence." >>"\$stem.log"; exit 1; fi
+echo pdf >"\$stem.pdf"
+SH);
+        chmod("$bin/$engine", 0755);
+    }
+    file_put_contents($bin.'/pdffonts', "#!/usr/bin/env bash\nprintf 'name\\n---\\nABCDEF+LiberationSans-Regular\\n'\n");
+    file_put_contents($bin.'/pdftotext', "#!/usr/bin/env bash\necho hello\n");
+    // Drafting stub: writes the sources into the repo and replies with $STUB_REPLY; research calls (WebSearch) write nothing.
+    file_put_contents($bin.'/sessioneer', <<<'SH'
+#!/usr/bin/env bash
+n=$(ls "$STUB_LOG" 2>/dev/null | grep -c '^args' || true)
+printf '%s\n' "$@" >"$STUB_LOG/args$n"; cat >"$STUB_LOG/stdin$n"
+if ! grep -q 'scratch$' "$STUB_LOG/args$n"; then
+  mkdir -p "$REPO/cv" "$REPO/cover_letters"
+  echo '\documentclass{x}' >"$REPO/cv/main_a.tex"; echo '\documentclass{x}' >"$REPO/cover_letters/cover_a.tex"
+  echo '# r' >"$REPO/cv/main_a.md"; echo '# l' >"$REPO/cover_letters/cover_a.md"
+  [ -z "$STUB_SYMLINK" ] || ln -s /etc/hostname "$REPO/cv/main_a.pdf"
+  echo "$STUB_REPLY"
+fi
+SH);
+    chmod($bin.'/sessioneer', 0755);
+    // The test container has no jq: this one understands only `jq -r '.key // empty'` on stdin (the worker's reply parsing).
+    file_put_contents($bin.'/jq', "#!/usr/bin/env bash\n[ \"\$1\" = -r ] && [[ \"\$2\" =~ ^\\.([a-z_]+)\\ //\\ empty\$ ]] || exit 1\nphp -r '\$j = json_decode(stream_get_contents(STDIN), true); echo \$j[\$argv[1]] ?? \"\";' \"\${BASH_REMATCH[1]}\"\n");
+    foreach (['pdffonts', 'pdftotext', 'jq'] as $t) {
+        chmod("$bin/$t", 0755);
+    }
+
+    return $bin;
+}
+
+function applyEnv($test, string $bin): array
+{
+    return ['PATH' => $bin.':'.getenv('PATH'), 'STUB_LOG' => $test->app_dir.'/log', 'REPO' => $test->app_dir.'/repo', 'AI_JOB_SEARCH_DIR' => $test->app_dir.'/repo', 'RENDER_NODE' => $test->render,
+        'STUB_REPLY' => '{"resume_tex": "cv/main_a.tex", "letter_tex": "cover_letters/cover_a.tex", "resume_md": "cv/main_a.md", "letter_md": "cover_letters/cover_a.md"}'];
+}
+
+it('compiles the drafted sources in the worker (resume with lualatex, letter with xelatex, twice, in their own directories) and copies the PDFs', function (): void {
+    File::ensureDirectoryExists($this->app_dir.'/log');
+    $bin = stubCompileBin($this->app_dir);
+    $repo = $this->app_dir.'/repo';
+    [, $out] = workerShell($this->app_dir, 'apply_one 1 7 https://example.com/j Acme "Dev Ops"', applyEnv($this, $bin));
+    $engine = file($this->app_dir.'/log/engine', FILE_IGNORE_NEW_LINES);
+
+    expect($out)->toContain('artisan agent:complete 1 --message=Drafted main_a.pdf and cover_a.pdf')
+        ->and($engine)->toBe([
+            "lualatex $repo/cv -interaction=nonstopmode -halt-on-error -no-shell-escape main_a.tex", "lualatex $repo/cv -interaction=nonstopmode -halt-on-error -no-shell-escape main_a.tex",
+            "xelatex $repo/cover_letters -interaction=nonstopmode -halt-on-error -no-shell-escape cover_a.tex", "xelatex $repo/cover_letters -interaction=nonstopmode -halt-on-error -no-shell-escape cover_a.tex",
+        ])
+        ->and(file_exists($this->app_dir.'/storage/app/agent/apply/7/resume.pdf'))->toBeTrue()->and(file_exists($this->app_dir.'/storage/app/agent/apply/7/letter.md'))->toBeTrue()
+        ->and(glob($repo.'/{cv,cover_letters}/*.{aux,log}', GLOB_BRACE))->toBe([])
+        ->and(is_dir($this->app_dir.'/storage/app/agent/apply/7/scratch'))->toBeFalse();
+    File::deleteDirectory($bin);
+});
+
+it('fails the request with the log tail when the compile fails, and still cleans up', function (): void {
+    File::ensureDirectoryExists($this->app_dir.'/log');
+    $bin = stubCompileBin($this->app_dir);
+    [, $out] = workerShell($this->app_dir, 'apply_one 1 7 https://example.com/j Acme', applyEnv($this, $bin) + ['STUB_COMPILE_FAIL' => 'main_a']);
+
+    expect($out)->toContain('--fail --message=main_a.tex did not compile:')->toContain('Undefined control sequence')->not->toContain('Drafted')
+        ->and(glob($this->app_dir.'/repo/{cv,cover_letters}/*.{aux,log}', GLOB_BRACE))->toBe([])
+        ->and(file_exists($this->app_dir.'/storage/app/agent/apply/7/resume.pdf'))->toBeFalse()
+        ->and(is_dir($this->app_dir.'/storage/app/agent/apply/7/scratch'))->toBeFalse();
+    File::deleteDirectory($bin);
+});
+
+it('refuses source names outside the safe patterns and never runs an engine', function (string $reply): void {
+    File::ensureDirectoryExists($this->app_dir.'/log');
+    $bin = stubCompileBin($this->app_dir);
+    [, $out] = workerShell($this->app_dir, 'apply_one 1 7 https://example.com/j Acme', ['STUB_REPLY' => $reply] + applyEnv($this, $bin));
+
+    expect($out)->toContain('--fail --message=the agent did not produce a resume and letter source')->and(file_exists($this->app_dir.'/log/engine'))->toBeFalse();
+    File::deleteDirectory($bin);
+})->with([
+    'traversal' => ['{"resume_tex": "cv/../main_a.tex", "letter_tex": "cover_letters/cover_a.tex"}'],
+    'wrong dir' => ['{"resume_tex": "cover_letters/cover_a.tex", "letter_tex": "cv/main_a.tex"}'],
+    'shell chars' => ['{"resume_tex": "cv/a;rm.tex", "letter_tex": "cover_letters/cover_a.tex"}'],
+    'pdf name' => ['{"resume_tex": "cv/main_a.pdf", "letter_tex": "cover_letters/cover_a.tex"}'],
+    'no json' => ['done'],
+]);
+
+it('refuses a source or output that is a symlink', function (): void {
+    File::ensureDirectoryExists($this->app_dir.'/log');
+    $bin = stubCompileBin($this->app_dir);
+    [, $out] = workerShell($this->app_dir, 'apply_one 1 7 https://example.com/j Acme', applyEnv($this, $bin) + ['STUB_SYMLINK' => '1']);
+
+    expect($out)->toContain('--fail --message=main_a.pdf is a symlink')->and(file_exists($this->app_dir.'/log/engine'))->toBeFalse();
+    File::deleteDirectory($bin);
+});
+
+it('gives the research session the job title, posting host and company, without credentials or paths', function (): void {
+    File::ensureDirectoryExists($this->app_dir.'/log');
+    $bin = stubSessioneer($this->app_dir);
+    workerShell($this->app_dir, 'apply_one 1 7 "https://user:pw@Jobs.Ashby.com/Clair/abc?x=1" "Clair" "DevOps Engineer <b>"', ['RENDER_NODE' => $this->render, 'PATH' => $bin.':'.getenv('PATH'), 'STUB_LOG' => $this->app_dir.'/log']);
+    $stdin = file_get_contents($this->app_dir.'/log/stdin0');
+
+    expect($stdin)->toContain("Company: Clair\nJob title: DevOps Engineer b\nPosting host: jobs.ashby.com\n")->not->toContain('pw@')->not->toContain('<b>');
+    File::deleteDirectory($bin);
 });
