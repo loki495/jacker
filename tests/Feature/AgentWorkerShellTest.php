@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Actions\RequestAgentApply;
+use App\Models\Opportunity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 
@@ -93,8 +95,8 @@ it('runs a separate research session with search and fetch only, and the draftin
     $research = file_get_contents($log.'/args0');
     $drafting = file_get_contents($log.'/args1');
 
-    expect($research)->toContain('WebSearch')->toContain('WebFetch')->toContain("Read(/$scratch/**)")->toContain("Write(/$scratch/research.md)")
-        ->and(sessionArg($research, '--allowed-tools'))->toBe("WebSearch,WebFetch,Read(/$scratch/**),Write(/$scratch/research.md),Edit(/$scratch/research.md)")
+    expect($research)->toContain('WebSearch')->toContain('WebFetch')->toContain("Read(/$scratch/research.md)")->not->toContain("Read(/$scratch/**)")->toContain("Write(/$scratch/research.md)")
+        ->and(sessionArg($research, '--allowed-tools'))->toBe("WebSearch,WebFetch,Read(/$scratch/research.md),Write(/$scratch/research.md),Edit(/$scratch/research.md)")
         ->and(sessionArg($research, '--disallowed-tools'))->toStartWith('Bash,Agent,Skill,')
         ->and(sessionArg($research, '--workdir'))->toBe($scratch)
         ->and(file_get_contents($log.'/stdin0'))->toContain('Acme Corp script')->not->toContain('Ignore previous')->not->toContain('Wrong Name')
@@ -164,3 +166,26 @@ it('skips research when the job record has no company, whatever the posting says
     expect(sessionArg(file_get_contents($log.'/args0'), '--allowed-tools'))->toContain('Read(')->not->toContain('WebSearch');
     File::deleteDirectory($bin);
 });
+
+it('applies the same apply-link rule as the app', function (string $url): void {
+    $job = new Opportunity(['application_url' => $url]);
+    [, $out] = workerShell($this->app_dir, 'usable_url "$URL" && echo yes || echo no', ['URL' => $url]);
+
+    expect(trim($out))->toBe(app(RequestAgentApply::class)->eligible($job) ? 'yes' : 'no');
+})->with([
+    'https' => 'https://example.com/jobs/1',
+    'http' => 'http://example.com/a?b=c&d=e',
+    'upper case scheme' => 'HTTPS://example.com/jobs/1',
+    'ftp' => 'ftp://example.com/x',
+    'no scheme' => 'example.com/jobs',
+    'space' => 'https://example.com/a b',
+    'quote' => 'https://example.com/"x',
+    'single quote' => "https://example.com/'x",
+    'angle' => 'https://example.com/<x>',
+    'backtick' => 'https://example.com/`x`',
+    'backslash' => 'https://example.com/a\\b',
+    'fragment' => 'https://example.com/a#frag',
+    'empty host' => 'https://',
+    'at the length limit' => 'https://example.com/'.str_repeat('a', 480),
+    'over the length limit' => 'https://example.com/'.str_repeat('a', 481),
+]);

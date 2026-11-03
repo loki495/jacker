@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 return [
-    'heading' => 'Cover letter',
-    'intro' => 'One letter per job. Paste or import the text, edit it and save. Optional AI suggestions and similarities use the processing settings.',
     'body' => 'Letter text',
     'upload' => 'Import a .txt or .md file',
     'upload_invalid' => 'Choose a .txt or .md file up to 200 KB.',
@@ -12,7 +10,6 @@ return [
     'saved' => 'Cover letter saved.',
     'removed' => 'Cover letter removed.',
     'body_too_long' => 'The letter is longer than :max characters.',
-    'pdf' => 'Download PDF',
     'suggest' => 'Suggest improvements with AI',
     'suggest_working' => 'Waiting for suggestions…',
     'suggest_queued' => 'Queued. The suggestions appear here when processing finishes; your letter is never changed.',
@@ -24,8 +21,6 @@ return [
     'bad_output' => 'The agent returned no suggestions.',
     'request_unusable' => 'The letter is gone or the saved agent or model in Settings is not allowed.',
     'pdf_title' => 'Cover letter',
-    'ai_title' => 'Cover letter AI',
-    'ai_intro' => 'The agent, model and thinking level used by the Suggest button. It runs on the host bridge with no tools.',
     'agent' => 'Agent',
     'model' => 'Model',
     'model_invalid' => 'Use a plain model name (letters, digits, . _ : / -).',
