@@ -21,6 +21,7 @@
                 <a href="/opportunities/create" wire:navigate class="nav-link"><span>＋</span>{{ __('jobs.add_job') }}</a>
                 <a href="/import" wire:navigate class="nav-link"><span>↥</span>{{ __('jobs.import') }}</a>
                 <a href="/queue" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('queue')])><span>⟳</span>{{ __('jobs.nav_queue') }}</a>
+                <a href="/linkedin" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('linkedin')])><span>in</span>{{ __('jobs.nav_linkedin') }}</a>
                 <a href="/job-finder" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('job-finder')])><span>⌕</span>{{ __('scrapers.nav') }}</a>
                 <a href="/questions" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('questions')])><span>?</span>{{ __('questions.nav') }}</a>
                 <a href="/settings" wire:navigate @class(['nav-link', 'selected' => request()->routeIs('settings')])><span>⚙</span>{{ __('settings.nav') }}</a>

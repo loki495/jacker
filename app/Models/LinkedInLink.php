@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * A LinkedIn job link harvested from an alert email, kept until it is read by something
@@ -20,12 +21,22 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $message_id
  * @property string $status
  * @property int|null $opportunity_id
+ * @property string|null $description
+ * @property string|null $apply_url
+ * @property Carbon|null $scanned_at
+ * @property string|null $scan_error
  */
 class LinkedInLink extends Model
 {
     public const string NEW = 'new';
 
+    public const string QUEUED = 'queued';
+
+    public const string SCANNING = 'scanning';
+
     public const string IMPORTED = 'imported';
+
+    public const string FAILED = 'failed';
 
     public const string DISMISSED = 'dismissed';
 
@@ -38,7 +49,7 @@ class LinkedInLink extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['notes' => 'array'];
+        return ['notes' => 'array', 'scanned_at' => 'datetime'];
     }
 
     /**

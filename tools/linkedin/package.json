@@ -1,0 +1,9 @@
+{
+  "name": "jacker-linkedin",
+  "private": true,
+  "type": "module",
+  "description": "Host-side LinkedIn reader used by bin/linkedin-scan: opens a queued link in a signed-in Chrome profile and prints the posting as JSON",
+  "dependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}

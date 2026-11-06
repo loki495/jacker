@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Host side of the LinkedIn read queue. Takes one queued link from the app, opens it in a signed-in Chrome
+# profile (tools/linkedin/scan.mjs), and records what the page showed through `linkedin:complete`.
+#
+#   bin/linkedin-scan --login    open LinkedIn once so the profile keeps the session (needed before any scan)
+#   bin/linkedin-scan            work the queue once
+#   bin/linkedin-scan --loop     keep working it, polling every LINKEDIN_SCAN_POLL seconds
+#
+# Needs docker, jq, node and `npm install` run once in tools/linkedin. The browser is headed on purpose:
+# LinkedIn blocks headless sessions, and you can see what it is doing. Links are spaced apart
+# (LINKEDIN_SCAN_DELAY_MIN..MAX, default 20..60 seconds) so a batch of links is not a burst of requests.
+set -euo pipefail
+
+CONTAINER="${JACKER_CONTAINER:-jacker-app}"
+DIR="$(dirname "$(readlink -f "$0")")"
+SCAN="$DIR/../tools/linkedin/scan.mjs"
+DELAY_MIN="${LINKEDIN_SCAN_DELAY_MIN:-20}"
+DELAY_MAX="${LINKEDIN_SCAN_DELAY_MAX:-60}"
+POLL="${LINKEDIN_SCAN_POLL:-60}"
+
+artisan() { docker exec -i --user www-data "$CONTAINER" php artisan "$@"; }
+
+scan_one() {
+    local job id url errfile out pause
+    job="$(artisan linkedin:claim)"
+    [ -n "$job" ] || return 1
+    id="$(jq -r .id <<<"$job")"
+    url="$(jq -r .url <<<"$job")"
+    errfile="$(mktemp)"
+    if out="$(node "$SCAN" "$url" 2>"$errfile")"; then
+        artisan linkedin:complete "$id" --json="$out" >/dev/null
+    else
+        artisan linkedin:complete "$id" --fail="$(tail -n1 "$errfile" | cut -c1-300)" >/dev/null
+    fi
+    rm -f "$errfile"
+    pause=$((DELAY_MIN + RANDOM % (DELAY_MAX - DELAY_MIN + 1)))
+    echo "read $id ($url); waiting ${pause}s" >&2
+    sleep "$pause"
+}
+
+case "${1:-}" in
+    --login) node "$SCAN" --login ;;
+    --loop) while true; do scan_one || sleep "$POLL"; done ;;
+    '') scan_one || true ;;
+    *) echo "usage: bin/linkedin-scan [--login|--loop]" >&2; exit 2 ;;
+esac

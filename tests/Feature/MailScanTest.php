@@ -111,24 +111,6 @@ it('keeps LinkedIn alert cards as links to read later, without fetching LinkedIn
     expect(LinkedInLink::query()->count())->toBe(2);
 });
 
-it('lists the kept LinkedIn links on the queue page and dismisses one', function (): void {
-    LinkedInLink::query()->create([
-        'job_id' => '4469238554', 'url' => 'https://www.linkedin.com/jobs/view/4469238554',
-        'title' => 'Senior PHP Developer', 'company' => 'Acme Corp', 'location' => 'Santa Monica, CA',
-        'alert' => 'web developer in Los Angeles Metropolitan Area', 'status' => LinkedInLink::NEW,
-    ]);
-    $link = LinkedInLink::query()->firstOrFail();
-
-    Livewire::test('pages::queue')
-        ->assertSee('Senior PHP Developer')
-        ->assertSee('Acme Corp')
-        ->call('dismissLink', $link->id)
-        ->assertSee(__('jobs.linkedin_dismissed'));
-
-    expect($link->refresh()->status)->toBe(LinkedInLink::DISMISSED);
-    Livewire::test('pages::queue')->assertDontSee('Senior PHP Developer');
-});
-
 it('exports the kept LinkedIn links as JSON for a later scan', function (): void {
     LinkedInLink::query()->create([
         'job_id' => '4469238554', 'url' => 'https://www.linkedin.com/jobs/view/4469238554',
