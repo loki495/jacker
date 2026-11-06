@@ -14,13 +14,13 @@ final class MailScan extends Command
     protected $signature = 'mail:scan {--dry-run : Read the mailbox and list the links that would be queued, without recording or queuing anything}';
 
     #[\Override]
-    protected $description = 'Read the configured mailbox (read-only) and queue link checks for job links in new emails.';
+    protected $description = 'Read the configured mailbox (read-only), queue link checks for job links and keep LinkedIn alert links for a later scan.';
 
     public function handle(ScanMailbox $scan): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $result = $scan->handle($dryRun);
-        $this->info(__('jobs.mail_scanned', Arr::only($result, ['messages', 'found', 'queued'])));
+        $this->info(__('jobs.mail_scanned', Arr::only($result, ['messages', 'found', 'queued', 'saved'])));
         if ($dryRun) {
             $this->line(__('jobs.mail_dry_run'));
             array_map($this->line(...), $result['urls']);

@@ -9,6 +9,7 @@ use App\Enums\LinkCheckStatus;
 use App\Jobs\ScanMailboxJob;
 use App\Models\AiRequest;
 use App\Models\LinkCheck;
+use App\Models\LinkedInLink;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -49,6 +50,19 @@ new #[Layout('layouts.app')] class extends Component
         }
         ScanMailboxJob::dispatch();
         $this->message = __('jobs.mail_scan_queued');
+    }
+
+    public function dismissLink(int $id): void
+    {
+        LinkedInLink::query()->where('status', LinkedInLink::NEW)->whereKey($id)->update(['status' => LinkedInLink::DISMISSED]);
+        unset($this->linkedInLinks);
+        $this->message = __('jobs.linkedin_dismissed');
+    }
+
+    #[Computed]
+    public function linkedInLinks()
+    {
+        return LinkedInLink::query()->where('status', LinkedInLink::NEW)->orderByDesc('id')->limit(50)->get();
     }
 
     public function clearOld(): void
@@ -127,6 +141,25 @@ new #[Layout('layouts.app')] class extends Component
                 <div class="metric"><span>{{ App\Enums\LinkCheckStatus::from($status)->label() }}</span><strong>{{ $total }}</strong>@if($status === 'queued')<small>{{ __('jobs.link_remaining', ['count' => $this->linkCounts['queued'] + $this->linkCounts['running']]) }}</small>@endif</div>
             @endforeach
         </section>
+        @if($this->linkedInLinks->isNotEmpty())
+        <section class="panel" aria-label="{{ __('jobs.linkedin_links') }}">
+            <div class="section-heading"><div><h2>{{ __('jobs.linkedin_links') }}</h2><p>{{ __('jobs.linkedin_links_intro') }}</p></div></div>
+            <div class="table-scroll"><table>
+                <thead><tr><th>{{ __('jobs.linkedin_col_role') }}</th><th>{{ __('jobs.linkedin_col_company') }}</th><th>{{ __('jobs.linkedin_col_location') }}</th><th>{{ __('jobs.linkedin_col_alert') }}</th><th></th></tr></thead>
+                <tbody>
+                @foreach($this->linkedInLinks as $link)
+                    <tr>
+                        <td><a class="underline" href="{{ $link->url }}" target="_blank" rel="noopener">{{ $link->title ?: $link->job_id }}</a></td>
+                        <td>{{ $link->company }}</td>
+                        <td>{{ $link->location }}</td>
+                        <td>{{ $link->alert }}</td>
+                        <td><flux:button wire:click="dismissLink({{ $link->id }})" wire:confirm="{{ __('jobs.linkedin_dismiss_confirm') }}">{{ __('jobs.linkedin_dismiss') }}</flux:button></td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table></div>
+        </section>
+        @endif
         <section class="panel detail-panel"><form wire:submit="clearOld" class="form-actions flex-wrap"><flux:select wire:model="clearDays" :aria-label="__('jobs.link_clear_label')"><option value="30">{{ __('jobs.link_clear_30') }}</option><option value="7">{{ __('jobs.link_clear_7') }}</option><option value="0">{{ __('jobs.link_clear_all') }}</option></flux:select><flux:button type="submit" wire:confirm="{{ __('jobs.link_clear_confirm') }}">{{ __('jobs.link_clear') }}</flux:button></form></section>
         <section class="pipeline panel"><div class="table-scroll"><table><thead><tr><th>{{ __('jobs.link_col_when') }}</th><th>{{ __('jobs.link_col_kind') }}</th><th>{{ __('jobs.link_col_job') }}</th><th>{{ __('jobs.link_col_link') }}</th><th>{{ __('jobs.status') }}</th><th>{{ __('jobs.link_col_result') }}</th></tr></thead><tbody>
             @forelse($this->checks as $check)

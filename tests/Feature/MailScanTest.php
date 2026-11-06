@@ -8,6 +8,7 @@ use App\Actions\ScanMailbox;
 use App\Jobs\ProcessLinkCheck;
 use App\Jobs\ScanMailboxJob;
 use App\Models\LinkCheck;
+use App\Models\LinkedInLink;
 use App\Models\MailMessage;
 use App\Models\Opportunity;
 use App\Services\MailboxReader;
@@ -95,17 +96,48 @@ it('parses alert cards into title, company, location, notes and the alert name',
     expect((new ParseJobAlertCards)->handle("Just a chat message\nView job: https://www.linkedin.com/jobs/view/1"))->toBe([]);
 });
 
-it('creates listings from LinkedIn alert cards without fetching LinkedIn, once per job', function (): void {
+it('keeps LinkedIn alert cards as links to read later, without fetching LinkedIn or creating listings', function (): void {
     Bus::fake([ProcessLinkCheck::class]);
     fakeMailbox([fakeMail('<c@x>', '', ALERT)]);
-    expect(app(ScanMailbox::class)->handle())->toMatchArray(['messages' => 1, 'queued' => 2]);
-    $job = Opportunity::query()->where('company', 'Acme Corp')->firstOrFail();
-    expect($job->title)->toBe('Senior PHP Developer')->and($job->location)->toBe('Santa Monica, CA')->and($job->application_url)->toBe('https://www.linkedin.com/jobs/view/4469238554')
-        ->and($job->extra_fields['Job alert'])->toBe('web developer in Los Angeles Metropolitan Area')->and($job->extra_fields['LinkedIn notes'])->toContain('actively hiring');
-    expect(LinkCheck::query()->count())->toBe(0)->and(Opportunity::query()->count())->toBe(2);
+    expect(app(ScanMailbox::class)->handle())->toMatchArray(['messages' => 1, 'queued' => 0, 'saved' => 2]);
+    $link = LinkedInLink::query()->where('company', 'Acme Corp')->firstOrFail();
+    expect($link->title)->toBe('Senior PHP Developer')->and($link->location)->toBe('Santa Monica, CA')
+        ->and($link->url)->toBe('https://www.linkedin.com/jobs/view/4469238554')->and($link->job_id)->toBe('4469238554')
+        ->and($link->alert)->toBe('web developer in Los Angeles Metropolitan Area')->and($link->notes)->toContain('This company is actively hiring')
+        ->and($link->status)->toBe(LinkedInLink::NEW);
+    expect(LinkCheck::query()->count())->toBe(0)->and(Opportunity::query()->count())->toBe(0);
     fakeMailbox([fakeMail('<d@x>', '', ALERT)]);
     app(ScanMailbox::class)->handle();
-    expect(Opportunity::query()->count())->toBe(2);
+    expect(LinkedInLink::query()->count())->toBe(2);
+});
+
+it('lists the kept LinkedIn links on the queue page and dismisses one', function (): void {
+    LinkedInLink::query()->create([
+        'job_id' => '4469238554', 'url' => 'https://www.linkedin.com/jobs/view/4469238554',
+        'title' => 'Senior PHP Developer', 'company' => 'Acme Corp', 'location' => 'Santa Monica, CA',
+        'alert' => 'web developer in Los Angeles Metropolitan Area', 'status' => LinkedInLink::NEW,
+    ]);
+    $link = LinkedInLink::query()->firstOrFail();
+
+    Livewire::test('pages::queue')
+        ->assertSee('Senior PHP Developer')
+        ->assertSee('Acme Corp')
+        ->call('dismissLink', $link->id)
+        ->assertSee(__('jobs.linkedin_dismissed'));
+
+    expect($link->refresh()->status)->toBe(LinkedInLink::DISMISSED);
+    Livewire::test('pages::queue')->assertDontSee('Senior PHP Developer');
+});
+
+it('exports the kept LinkedIn links as JSON for a later scan', function (): void {
+    LinkedInLink::query()->create([
+        'job_id' => '4469238554', 'url' => 'https://www.linkedin.com/jobs/view/4469238554',
+        'title' => 'Senior PHP Developer', 'company' => 'Acme Corp', 'status' => LinkedInLink::NEW,
+    ]);
+
+    $this->artisan('linkedin:links --json')
+        ->expectsOutputToContain('"url":"https://www.linkedin.com/jobs/view/4469238554"')
+        ->assertSuccessful();
 });
 
 it('fails clearly when the mailbox is not configured', function (): void {
@@ -127,5 +159,5 @@ it('dry run lists the links without recording emails or queueing checks', functi
     Bus::fake([ProcessLinkCheck::class]);
     fakeMailbox([fakeMail('<d@x>', '', ALERT)]);
     $this->artisan('mail:scan --dry-run')->expectsOutputToContain('https://www.linkedin.com/jobs/view/4469238554')->assertSuccessful();
-    expect(MailMessage::query()->count())->toBe(0)->and(LinkCheck::query()->count())->toBe(0);
+    expect(MailMessage::query()->count())->toBe(0)->and(LinkCheck::query()->count())->toBe(0)->and(LinkedInLink::query()->count())->toBe(0);
 });
