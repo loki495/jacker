@@ -104,7 +104,7 @@ new #[Layout('layouts.app')] class extends Component
     @if($this->needsSignIn)<div class="validation-summary" role="alert">{{ __('jobs.linkedin_needs_sign_in') }}</div>@endif
 
     <section class="panel">
-        <div class="section-heading">
+        <div class="pipeline-header">
             <div><h2>{{ __('jobs.linkedin_list') }}</h2><p>{{ __('jobs.linkedin_running', ['count' => $this->waiting]) }}</p></div>
         </div>
         <div class="table-scroll">
