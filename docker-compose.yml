@@ -37,6 +37,23 @@ services:
     volumes:
       - ./:/var/www/html
 
+  scheduler:
+    container_name: jacker-scheduler
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    restart: unless-stopped
+    labels:
+      - traefik.enable=false
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    working_dir: /var/www/html
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - ./:/var/www/html
+
   node:
     image: node:24-bookworm-slim
     profiles: [tools]
