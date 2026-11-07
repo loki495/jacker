@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\ClaimAiRequest;
 use App\Actions\CompleteAiRequest;
+use App\Actions\RequestAgentApply;
 use App\Actions\RequestAiExtraction;
 use App\Actions\RunLinkCheck;
 use App\Enums\LinkCheckStatus;
@@ -12,6 +13,7 @@ use App\Models\LinkCheck;
 use App\Models\Opportunity;
 use App\Services\PageText;
 use App\Services\UrlGuard;
+use App\Support\AgentWorker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
@@ -224,13 +226,26 @@ it('asks for the employer apply link but never a linkedin one or a guess', funct
 
 it('replaces a linkedin application link with the employer link found in the text and keeps the posting', function (): void {
     $job = applyUrlRun('https://www.linkedin.com/jobs/view/1', 'Apply at https://acme.test/jobs/7 today', ['application_url' => 'https://acme.test/jobs/7']);
-    expect($job->application_url)->toBe('https://acme.test/jobs/7')->and($job->extra_fields['LinkedIn posting'])->toBe('https://www.linkedin.com/jobs/view/1')->and($job->benefits)->toBe('Pizza');
+    expect($job->application_url)->toBe('https://acme.test/jobs/7')->and($job->extra_fields['LinkedIn posting'])->toBe('https://www.linkedin.com/jobs/view/1')->and($job->benefits)->toBe('Pizza')
+        ->and(app(RequestAgentApply::class)->needsLinkConfirmation($job))->toBeTrue();
 });
 
 it('ignores a link that is not in the text, is a linkedin address, or would replace the owner\'s own link', function (): void {
     $invented = applyUrlRun('https://www.linkedin.com/jobs/view/2', 'No links here', ['application_url' => 'https://acme.test/made-up']);
     $linkedin = applyUrlRun('https://www.linkedin.com/jobs/view/3', 'See https://www.linkedin.com/jobs/view/9', ['application_url' => 'https://www.linkedin.com/jobs/view/9']);
+    $fragment = applyUrlRun('https://www.linkedin.com/jobs/view/4', 'Apply at https://acme.test/jobs/70.', ['application_url' => 'https://acme.test/jobs/7']);
     $own = applyUrlRun('https://careers.acme.test/1', 'Apply at https://other.test/2', ['application_url' => 'https://other.test/2']);
     expect($invented->application_url)->toBe('https://www.linkedin.com/jobs/view/2')->and($linkedin->application_url)->toBe('https://www.linkedin.com/jobs/view/3')
-        ->and($own->application_url)->toBe('https://careers.acme.test/1')->and($own->benefits)->toBe('Pizza');
+        ->and($fragment->application_url)->toBe('https://www.linkedin.com/jobs/view/4')->and($own->application_url)->toBe('https://careers.acme.test/1')->and($own->benefits)->toBe('Pizza');
+});
+
+it('keeps the agent apply run off an AI-set link until the owner confirms it', function (): void {
+    AgentWorker::register();
+    $job = applyUrlRun('https://www.linkedin.com/jobs/view/5', 'Apply at https://acme.test/jobs/8', ['application_url' => 'https://acme.test/jobs/8']);
+    $apply = app(RequestAgentApply::class);
+    expect($apply->handle($job))->toBeNull();
+
+    $apply->confirmLink($job);
+
+    expect($apply->needsLinkConfirmation($job->refresh()))->toBeFalse()->and($job->extra_fields['LinkedIn posting'])->toBe('https://www.linkedin.com/jobs/view/5');
 });

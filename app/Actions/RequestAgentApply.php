@@ -14,12 +14,27 @@ use InvalidArgumentException;
 
 final readonly class RequestAgentApply
 {
+    /** Extra-field key set when the AI took the application link from the posting text; cleared when the owner confirms it. */
+    public const string UNCONFIRMED = 'Apply link source';
+
     public function __construct(private UrlGuard $guard) {}
+
+    public function needsLinkConfirmation(Opportunity $opportunity): bool
+    {
+        return isset($opportunity->extra_fields[self::UNCONFIRMED]);
+    }
+
+    public function confirmLink(Opportunity $opportunity): void
+    {
+        $extra = $opportunity->extra_fields ?? [];
+        unset($extra[self::UNCONFIRMED]);
+        $opportunity->update(['extra_fields' => $extra === [] ? null : $extra]);
+    }
 
     /** Queues the /apply workflow for one selected job; null when the worker is offline, the job has no http(s) application link, or a run is already pending. */
     public function handle(Opportunity $opportunity): ?AiRequest
     {
-        if (! AgentWorker::online() || ! $this->eligible($opportunity) || $this->pending($opportunity) || ! $this->isPublic($opportunity)) {
+        if (! AgentWorker::online() || $this->needsLinkConfirmation($opportunity) || ! $this->eligible($opportunity) || $this->pending($opportunity) || ! $this->isPublic($opportunity)) {
             return null;
         }
 

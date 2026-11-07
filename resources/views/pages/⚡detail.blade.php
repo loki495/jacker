@@ -180,6 +180,12 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('message', $apply->handle($this->opportunity) instanceof AiRequest ? __('jobs.apply_queued') : __('jobs.apply_unavailable'));
     }
 
+    public function confirmApplyLink(RequestAgentApply $apply): void
+    {
+        $apply->confirmLink($this->opportunity);
+        $this->opportunity->refresh();
+    }
+
     #[Computed]
     public function applyPending(): bool
     {
@@ -264,7 +270,7 @@ new #[Layout('layouts.app')] class extends Component
             @if(App\Support\AgentWorker::online() || $this->applyRun)
                 <h3>{{ __('materials.run_title') }}</h3><p class="field-hint">{{ __('jobs.apply_hint') }}</p>
                 @if($this->applyRun)<p><span class="status-badge link-{{ $this->applyRun->status->value }}">{{ $this->applyRun->status->label() }}</span> {{ $this->applyRun->message }}</p>@endif
-                @if(App\Support\AgentWorker::online() && app(App\Actions\RequestAgentApply::class)->eligible($job))<button type="button" wire:click="generateApplication" class="archive-button" wire:loading.attr="disabled" @disabled($this->applyPending)>{{ $this->applyPending ? __('jobs.apply_working') : __('jobs.apply_run') }}</button>@endif
+                @if(app(App\Actions\RequestAgentApply::class)->needsLinkConfirmation($job))<p role="alert">{{ __('jobs.apply_link_confirm', ['url' => $job->application_url]) }}</p><button type="button" wire:click="confirmApplyLink" class="archive-button">{{ __('jobs.apply_link_confirm_button') }}</button>@elseif(App\Support\AgentWorker::online() && app(App\Actions\RequestAgentApply::class)->eligible($job))<button type="button" wire:click="generateApplication" class="archive-button" wire:loading.attr="disabled" @disabled($this->applyPending)>{{ $this->applyPending ? __('jobs.apply_working') : __('jobs.apply_run') }}</button>@endif
             @endif
         </section>
         @if($job->extra_fields)<section class="panel detail-panel"><h2>{{ __('jobs.extra_fields') }}</h2><dl class="detail-facts">@foreach($job->extra_fields as $key => $value)<div><dt>{{ ucfirst(str_replace('_', ' ', $key)) }}</dt><dd>{{ $value ?? '—' }}</dd></div>@endforeach</dl></section>@endif

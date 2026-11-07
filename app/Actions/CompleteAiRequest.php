@@ -59,10 +59,18 @@ final readonly class CompleteAiRequest
         }
         $this->applier->applyFields($request->linkCheck, $fields, $replace);
         if ($opportunity instanceof Opportunity && in_array('application_url', $request->linkCheck->filled ?? [], true) && filled($original)) {
-            $opportunity->refresh()->update(['extra_fields' => [...($opportunity->extra_fields ?? []), 'LinkedIn posting' => $original]]);
+            $opportunity->refresh()->update(['extra_fields' => [...($opportunity->extra_fields ?? []), 'LinkedIn posting' => $original, RequestAgentApply::UNCONFIRMED => __('jobs.apply_link_unconfirmed')]]);
         }
         $replaced = array_intersect_key($previous, array_flip($request->linkCheck->filled ?? []));
         $request->update(['status' => LinkCheckStatus::Done, 'message' => $request->linkCheck->message, 'replaced' => $replaced ?: null, 'finished_at' => now()]);
+    }
+
+    /** The address must be one whole address token written in the page text, not a fragment of one or a model invention. */
+    private function isWholeAddressIn(string $url, string $text): bool
+    {
+        preg_match_all('#https?://[^\s<>"\'()\[\]]+#i', $text, $found);
+
+        return in_array($url, array_map(fn (string $candidate): string => rtrim($candidate, '.,;:!?'), $found[0]), true);
     }
 
     /** @return array<string, mixed> */
@@ -88,7 +96,7 @@ final readonly class CompleteAiRequest
         }
         $apply = $json['application_url'] ?? null;
         if (is_string($apply) && filter_var($apply, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $apply) === 1
-            && ! str_ends_with(strtolower((string) parse_url($apply, PHP_URL_HOST)), 'linkedin.com') && str_contains($pageText, $apply)) {
+            && ! str_ends_with(strtolower((string) parse_url($apply, PHP_URL_HOST)), 'linkedin.com') && $this->isWholeAddressIn($apply, $pageText)) {
             $fields['application_url'] = $apply;
         }
         foreach (['salary_min', 'salary_max'] as $key) {
