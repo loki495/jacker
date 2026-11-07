@@ -108,7 +108,9 @@ try {
             return /^apply$/i.test(label) && /^https?:/i.test(a.href) && !/linkedin\.com/i.test(a.href);
         });
 
-        return { title, company, location, description, apply_url: applyAnchor?.href ?? null };
+        const easyApply = Array.from(document.querySelectorAll('button, a')).some((n) => /easy apply/i.test(n.innerText || n.getAttribute('aria-label') || ''));
+
+        return { title, company, location, description, apply_url: applyAnchor?.href ?? null, easy_apply: easyApply };
     });
 
     if (!data.title || !data.company) await bail('the page did not show a job title and company');
@@ -119,6 +121,7 @@ try {
         location: data.location || null,
         description: data.description || null,
         apply_url: data.apply_url || null,
+        easy_apply: data.easy_apply,
     }));
 
     await finish(0);

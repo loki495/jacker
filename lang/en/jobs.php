@@ -322,6 +322,7 @@ return [
     'linkedin_running' => ':count waiting on the scanner.',
     'linkedin_select' => 'Select :title',
     'linkedin_needs_sign_in' => 'LinkedIn needs sign-in: run bin/linkedin-scan --login, then start the worker (systemctl --user start jacker-linkedin-scan), then retry the failed links.',
+    'linkedin_rescan' => 'Rescan',
     'linkedin_retry_failed' => 'Retry failed',
     'linkedin_scan_selected' => 'Scan selected',
     'linkedin_clear_selection' => 'Clear',

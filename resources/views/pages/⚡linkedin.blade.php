@@ -52,6 +52,13 @@ new #[Layout('layouts.app')] class extends Component
         $this->message = trans_choice('jobs.linkedin_queued', $count, ['count' => $count]);
     }
 
+    public function rescan(int $id): void
+    {
+        LinkedInLink::query()->whereKey($id)->where('status', LinkedInLink::IMPORTED)->update(['status' => LinkedInLink::QUEUED, 'scan_error' => null]);
+        unset($this->links);
+        $this->message = trans_choice('jobs.linkedin_queued', 1, ['count' => 1]);
+    }
+
     public function dismissLink(int $id): void
     {
         LinkedInLink::query()->whereKey($id)->whereIn('status', [LinkedInLink::NEW, LinkedInLink::FAILED])->update(['status' => LinkedInLink::DISMISSED]);
@@ -129,6 +136,9 @@ new #[Layout('layouts.app')] class extends Component
                         <td>
                             @if(in_array($link->status, ['new', 'failed'], true))
                                 <flux:button wire:click="dismissLink({{ $link->id }})" wire:confirm="{{ __('jobs.linkedin_dismiss_confirm') }}">{{ __('jobs.linkedin_dismiss') }}</flux:button>
+                            @endif
+                            @if($link->status === 'imported' && ! $link->apply_url)
+                                <flux:button wire:click="rescan({{ $link->id }})">{{ __('jobs.linkedin_rescan') }}</flux:button>
                             @endif
                         </td>
                     </tr>
