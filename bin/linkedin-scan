@@ -21,7 +21,7 @@ POLL="${LINKEDIN_SCAN_POLL:-60}"
 artisan() { docker exec -i --user www-data "$CONTAINER" php artisan "$@"; }
 
 scan_one() {
-    local job id url errfile out pause
+    local job id url errfile out pause code
     job="$(artisan linkedin:claim)"
     [ -n "$job" ] || return 1
     id="$(jq -r .id <<<"$job")"
@@ -30,17 +30,24 @@ scan_one() {
     if out="$(node "$SCAN" "$url" 2>"$errfile")"; then
         artisan linkedin:complete "$id" --json="$out" >/dev/null
     else
+        code=$?
         artisan linkedin:complete "$id" --fail="$(tail -n1 "$errfile" | cut -c1-300)" >/dev/null
+        # Sign-in wall: stop instead of failing every queued row; /mail-leads shows the banner.
+        if [ "$code" = 5 ]; then rm -f "$errfile"; echo "LinkedIn needs sign-in: run bin/linkedin-scan --login, then start the worker again" >&2; exit 5; fi
     fi
     rm -f "$errfile"
     pause=$((DELAY_MIN + RANDOM % (DELAY_MAX - DELAY_MIN + 1)))
-    echo "read $id ($url); waiting ${pause}s" >&2
-    sleep "$pause"
+    if [ "${LOOP:-0}" = 1 ]; then
+        echo "read $id ($url); waiting ${pause}s" >&2
+        sleep "$pause"
+    else
+        echo "read $id ($url); run with --loop to work the rest of the queue" >&2
+    fi
 }
 
 case "${1:-}" in
     --login) node "$SCAN" --login ;;
-    --loop) while true; do scan_one || sleep "$POLL"; done ;;
+    --loop) LOOP=1; while true; do scan_one || sleep "$POLL"; done ;;
     '') scan_one || true ;;
     *) echo "usage: bin/linkedin-scan [--login|--loop]" >&2; exit 2 ;;
 esac

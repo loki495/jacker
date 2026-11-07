@@ -37,6 +37,17 @@ const arg = process.argv[2];
 if (!arg) fail('usage: scan.mjs <url> | --login', 2);
 
 const context = await launch();
+
+// process.exit skips `finally`, which killed Chrome uncleanly and left a stale profile lock; close first.
+async function bail(message, code = 3) {
+    await context.close().catch(() => {});
+    fail(message, code);
+}
+
+async function finish(code) {
+    await context.close().catch(() => {});
+    process.exit(code);
+}
 const page = context.pages()[0] ?? (await context.newPage());
 
 try {
@@ -47,37 +58,40 @@ try {
         while (Date.now() < deadline) {
             if (!/\/login|authwall/.test(page.url())) {
                 console.error('Signed in; the profile now keeps the session.');
-                process.exit(0);
+                await finish(0);
             }
             await new Promise((resolve) => setTimeout(resolve, 2000));
         }
-        fail('the sign-in did not finish in time', 4);
+        await bail('the sign-in did not finish in time', 4);
     }
 
     await page.goto(arg, { waitUntil: 'domcontentloaded', timeout: navTimeout });
     if (/\/login|authwall|checkpoint/.test(page.url())) {
-        fail('LinkedIn asked for a sign-in: run bin/linkedin-scan --login once, then queue the link again', 5);
+        await bail('LinkedIn asked for a sign-in: run bin/linkedin-scan --login once, then queue the link again', 5);
     }
 
     await page.waitForSelector('h1', { timeout: 15000 }).catch(() => {});
 
     const data = await page.evaluate(() => {
         const text = (node) => (node?.innerText ?? '').trim().replace(/\s+\n/g, '\n');
+        // First match with visible text: a bare icon or nav link can match a selector and be empty.
         const first = (selectors) => {
             for (const selector of selectors) {
-                const node = document.querySelector(selector);
+                const node = Array.from(document.querySelectorAll(selector)).find((n) => (n.innerText ?? '').trim());
                 if (node) return node;
             }
             return null;
         };
 
-        const title = text(first(['h1.t-24', '.job-details-jobs-unified-top-card__job-title', 'h1']));
+        const title = text(first(['h1.t-24', '.job-details-jobs-unified-top-card__job-title', 'h1.top-card-layout__title', 'h1']));
         const company = text(first([
+            '.topcard__org-name-link',
             '.job-details-jobs-unified-top-card__company-name a',
             '.job-details-jobs-unified-top-card__company-name',
             'a[href*="/company/"]',
         ]));
         const location = text(first([
+            '.topcard__flavor--bullet',
             '.job-details-jobs-unified-top-card__primary-description-container .tvm__text',
             '.job-details-jobs-unified-top-card__bullet',
             '.job-details-jobs-unified-top-card__workplace-type',
@@ -97,7 +111,7 @@ try {
         return { title, company, location, description, apply_url: applyAnchor?.href ?? null };
     });
 
-    if (!data.title || !data.company) fail('the page did not show a job title and company');
+    if (!data.title || !data.company) await bail('the page did not show a job title and company');
 
     console.log(JSON.stringify({
         title: data.title,
@@ -107,7 +121,7 @@ try {
         apply_url: data.apply_url || null,
     }));
 
-    process.exit(0);
+    await finish(0);
 } finally {
     await context.close().catch(() => {});
 }

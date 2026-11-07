@@ -1,0 +1,17 @@
+[Unit]
+Description=Jacker LinkedIn scan worker: reads queued Mail leads links in a headed, signed-in Chrome
+After=docker.service graphical-session.target
+
+[Service]
+Type=simple
+# Headed Chrome needs the desktop display; adjust if your session uses another one.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=DISPLAY=:0
+ExecStart=%h/www/personal/jacker/bin/linkedin-scan --loop
+Restart=on-failure
+RestartSec=30
+# Exit 5 = LinkedIn wants a sign-in. Do not restart; run bin/linkedin-scan --login, then start the unit.
+RestartPreventExitStatus=5
+
+[Install]
+WantedBy=default.target
