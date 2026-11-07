@@ -11,7 +11,7 @@ RENDER_TIMEOUT="${RENDER_TIMEOUT_MS:-30000}"; RENDER_TIMEOUT=$((RENDER_TIMEOUT /
 RENDER_SCRIPT="$(dirname "$(readlink -f "$0")")/../tools/render/render.mjs"
 # OpenCode has no --no-tools: shell, edits, web, subagents and skills are denied and reads stay inside the empty work directory; its config dir is empty so the global MCP servers are not loaded. (Denying "read" or setting "tools" makes this version hang.)
 OPENCODE_NO_TOOLS='{"permission":{"bash":"deny","edit":"deny","webfetch":"deny","websearch":"deny","task":"deny","skill":"deny","external_directory":"deny"}}'
-WORKDIR="$(mktemp -d)"; mkdir "$WORKDIR/.config"
+WORKDIR="$(mktemp -d)"; mkdir "$WORKDIR/.config"; touch "$WORKDIR/.no-stop-gate"  # keeps the owner's Stop hook from adding a status line to the reply
 trap 'rm -rf "$WORKDIR"' EXIT
 artisan() { docker exec -i --user www-data "$CONTAINER" php artisan "$@"; }
 
