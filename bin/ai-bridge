@@ -11,8 +11,13 @@ RENDER_TIMEOUT="${RENDER_TIMEOUT_MS:-30000}"; RENDER_TIMEOUT=$((RENDER_TIMEOUT /
 RENDER_SCRIPT="$(dirname "$(readlink -f "$0")")/../tools/render/render.mjs"
 # OpenCode has no --no-tools: shell, edits, web, subagents and skills are denied and reads stay inside the empty work directory; its config dir is empty so the global MCP servers are not loaded. (Denying "read" or setting "tools" makes this version hang.)
 OPENCODE_NO_TOOLS='{"permission":{"bash":"deny","edit":"deny","webfetch":"deny","websearch":"deny","task":"deny","skill":"deny","external_directory":"deny"}}'
-WORKDIR="$(mktemp -d)"; mkdir "$WORKDIR/.config"; touch "$WORKDIR/.no-stop-gate"  # keeps the owner's Stop hook from adding a status line to the reply
-trap 'rm -rf "$WORKDIR"' EXIT
+WORKDIR="$(mktemp -d)"; mkdir "$WORKDIR/.config"
+# The owner's Stop hook would make the model end with a status line instead of the bare reply, so register this
+# work directory with the hook's private skip list (outside the directory itself); touched again before each agent run.
+SKIP_FILE="${STOP_GATE_SKIP_DIR:-${XDG_RUNTIME_DIR:-$HOME/.cache}/dibs-stop-gate-skip}/$(printf %s "$WORKDIR" | sha256sum | cut -c1-32)"
+(umask 077; mkdir -p "$(dirname "$SKIP_FILE")")
+touch "$SKIP_FILE"
+trap 'rm -rf "$WORKDIR" "$SKIP_FILE"' EXIT
 artisan() { docker exec -i --user www-data "$CONTAINER" php artisan "$@"; }
 
 render_one() {
@@ -54,6 +59,7 @@ run_agent() {
     if [[ "$thinking" =~ ^(low|medium|high)$ ]]; then effort=(--effort "$thinking"); codex_effort=(-c "model_reasoning_effort=\"$thinking\""); variant=(--variant "$thinking"); fi
     case "$agent" in
         claude)
+            touch "$SKIP_FILE"
             out="$(mktemp)"
             timeout "$((TIMEOUT + 30))" sessioneer --wait --no-tools --timeout "$TIMEOUT" --agent claude --model "$model" "${effort[@]}" --workdir "$WORKDIR" - 2>"$out" || { rm -f "$out"; return 1; }
             [ -z "$(head -n1 "$out")" ] || sessioneer --kill "$(head -n1 "$out")" >/dev/null 2>&1 || true
