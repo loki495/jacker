@@ -16,7 +16,7 @@ On phones the sidebar collapses into a slim bar with a menu button. The top bar 
 
 Set `APP_TIMEZONE` to your local IANA timezone for status-history timestamps and daily follow-up boundaries. The portable default is `UTC`; tests explicitly use UTC and separately exercise timezone conversions.
 
-Mail uses the log driver. Queues use the database driver and the `queue` compose service (`php artisan queue:work`) processes link checks; with `QUEUE_CONNECTION=sync` they run inline instead. Outbound requests include job discovery, link checks and rendering, and explicitly enabled AI providers. No notifications are configured.
+Mail uses the log driver. Queues use the database driver and the `queue` compose service (`php artisan queue:work`) processes link checks; with `QUEUE_CONNECTION=sync` they run inline instead. Outbound requests include job discovery, link checks and rendering, and explicitly enabled AI providers. No notifications are configured. The mailbox scan reads `MAIL_SCAN_HOST`, `MAIL_SCAN_PORT`, `MAIL_SCAN_USERNAME`, `MAIL_SCAN_PASSWORD`, `MAIL_SCAN_FOLDER`, `MAIL_SCAN_DAYS` and `MAIL_SCAN_MAX` (see `config/mailscan.php`); the `scheduler` compose service schedules it only when username and password are set. The LinkedIn reader uses `LINKEDIN_SCAN_DELAY_MIN`/`MAX`.
 
 ## AI processing
 

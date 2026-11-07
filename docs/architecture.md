@@ -6,7 +6,7 @@ Jacker is a Laravel application with Livewire 4 single-file class pages and free
 
 Pages validate browser input and call typed actions. Actions own business rules and transactions; services perform third-party IO. `Opportunity` uses the `opportunities` table, separate from Laravel's queue `jobs` table. Settings store non-secret values as JSON; credentials belong in `.env`.
 
-SQLite holds opportunities, status history, staged found jobs, link checks, cover letters, interview questions and answers, AI request logs, and the optional similarity index. CSV imports are reviewed before writing; saves and lifecycle history share a transaction. PDF rendering is local. The application has no authentication: a private network or authenticated proxy is the access boundary.
+SQLite holds opportunities, status history, staged found jobs, link checks, cover letters, per-job resumes, kept job-alert email links (`linkedin_links`) and processed email Message-IDs (`mail_messages`), interview questions and answers, AI request logs, and the optional similarity index. CSV imports are reviewed before writing; saves and lifecycle history share a transaction. PDF rendering is local. The application has no authentication: a private network or authenticated proxy is the access boundary.
 
 ## AI requests
 
@@ -38,7 +38,7 @@ The detail page compares compatible vectors using cosine similarity in PHP. It e
 
 ## Background services and tests
 
-The `jacker-app` container serves HTTP. `jacker-queue` processes Laravel jobs. `bin/ai-bridge` runs on the host for bridge requests and isolated browser rendering. Restart the queue service after changing queued code or provider configuration.
+The `jacker-app` container serves HTTP. `jacker-queue` processes Laravel jobs. `jacker-scheduler` (`schedule:work`) runs the mailbox scan every 30 minutes when a mailbox is configured. `bin/linkedin-scan` is a host process that reads kept LinkedIn links in a signed-in Chrome profile (`tools/linkedin/scan.mjs`). `bin/ai-bridge` runs on the host for bridge requests and isolated browser rendering. Restart the queue service after changing queued code or provider configuration.
 
 Pest runs only against guarded SQLite `:memory:`. SDK tests use the SDK fakes with stray calls blocked; browser screenshots use disposable demo data. See [development](development.md) for the ordered quality gate and coverage floor.
 

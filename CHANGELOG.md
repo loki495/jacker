@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Mail leads: read-only IMAP scan of job alert emails (on demand and every 30 minutes from the scheduler), kept LinkedIn alert links scanned in a signed-in browser by a host reader, AI split of the scanned posting, and an apply-link confirmation before the agent apply run.
+- Installable PWA with iOS pull-to-refresh; `csv:import` command for headless import.
 - Application materials: one detail-page section with Resume and Cover letter tabs (Markdown editing, preview, PDF download, version picker with generated, edited and general resume), a Markdown to PDF renderer (Liberation Sans, real text layer), and Mark as used, which freezes the chosen PDFs and records the choice; the three new columns export read-only in CSV and are ignored on import.
 - Private search: the agent worker syncs the general resume into storage and writes resume and letter Markdown the editors preload from.
 

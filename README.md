@@ -35,7 +35,7 @@ docker compose --profile tools run --rm node
 
 Open <http://localhost:8096>. The default port binds only to loopback. Set `APP_PORT` and `APP_URL` if you change it. Match `APP_UID`/`APP_GID` to the repository owner before building. Keep `storage/` and `bootstrap/cache/` writable by that user.
 
-Start background processing with `docker compose up -d queue`. Host-bridge AI and browser page rendering also need the optional [host bridge](docs/features.md). API processing and similarities remain opt-in; no API key is needed for ordinary tracking.
+Start background processing with `docker compose up -d queue`; `docker compose up -d scheduler` runs the 30-minute mailbox scan when `MAIL_SCAN_USERNAME` and `MAIL_SCAN_PASSWORD` are set. The app is an installable PWA (web manifest and icons). Host-bridge AI and browser page rendering also need the optional [host bridge](docs/features.md). API processing and similarities remain opt-in; no API key is needed for ordinary tracking.
 
 ## Documentation
 
