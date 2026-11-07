@@ -6,7 +6,6 @@ use App\Actions\QueueLinkChecks;
 use App\Actions\RequestAiExtraction;
 use App\Actions\RequestScoring;
 use App\Enums\LinkCheckStatus;
-use App\Jobs\ScanMailboxJob;
 use App\Models\AiRequest;
 use App\Models\LinkCheck;
 use Livewire\Attributes\Computed;
@@ -38,17 +37,6 @@ new #[Layout('layouts.app')] class extends Component
     {
         $count = $queue->forActiveJobs();
         $this->message = $count > 0 ? __('jobs.link_queued_count', ['count' => $count]) : __('jobs.link_nothing_queued');
-    }
-
-    public function scanMailbox(): void
-    {
-        if (blank(config('mailscan.username')) || blank(config('mailscan.password'))) {
-            $this->message = __('jobs.mail_not_configured');
-
-            return;
-        }
-        ScanMailboxJob::dispatch();
-        $this->message = __('jobs.mail_scan_queued');
     }
 
     public function clearOld(): void
@@ -121,7 +109,7 @@ new #[Layout('layouts.app')] class extends Component
     @if($message)<div class="success-message" role="status">{{ $message }}</div>@endif
     @if($kind !== 'grading')
     <div class="mb-8">
-        <div class="section-heading"><div><h2>{{ __('jobs.link_checks') }}</h2><p>{{ __('jobs.link_checks_intro') }}</p></div><div class="flex gap-2"><flux:button wire:click="checkAll" variant="primary" icon="arrow-path">{{ __('jobs.link_check_all') }}</flux:button><flux:button wire:click="scanMailbox" icon="envelope">{{ __('jobs.mail_scan') }}</flux:button></div></div>
+        <div class="section-heading"><div><h2>{{ __('jobs.link_checks') }}</h2><p>{{ __('jobs.link_checks_intro') }}</p></div><flux:button wire:click="checkAll" variant="primary" icon="arrow-path">{{ __('jobs.link_check_all') }}</flux:button></div>
         <section class="metrics" aria-label="{{ __('jobs.link_checks') }}">
             @foreach($this->linkCounts as $status => $total)
                 <div class="metric"><span>{{ App\Enums\LinkCheckStatus::from($status)->label() }}</span><strong>{{ $total }}</strong>@if($status === 'queued')<small>{{ __('jobs.link_remaining', ['count' => $this->linkCounts['queued'] + $this->linkCounts['running']]) }}</small>@endif</div>

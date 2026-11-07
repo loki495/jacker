@@ -22,7 +22,8 @@ Route::livewire('/questions', 'pages::questions')->name('questions');
 
 Route::livewire('/queue', 'pages::queue')->name('queue');
 Route::redirect('/link-checks', '/queue?kind=links');
-Route::livewire('/linkedin', 'pages::linkedin')->name('linkedin');
+Route::livewire('/mail-leads', 'pages::linkedin')->name('mail-leads');
+Route::redirect('/linkedin', '/mail-leads');
 Route::livewire('/job-finder', 'pages::job-finder')->name('job-finder');
 Route::redirect('/scoring', '/queue?kind=grading');
 Route::livewire('/settings', 'pages::settings')->name('settings');

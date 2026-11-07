@@ -122,18 +122,29 @@ it('exports the kept LinkedIn links as JSON for a later scan', function (): void
         ->assertSuccessful();
 });
 
+it('offers mailbox scanning on Mail leads instead of Queue and redirects old bookmarks', function (): void {
+    $this->get('/mail-leads')->assertOk()
+        ->assertSee('<h1>Mail leads</h1>', false)
+        ->assertSee('wire:click="scanMailbox"', false)
+        ->assertSee(__('jobs.mail_scan'))
+        ->assertSee('href="'.route('mail-leads').'"', false);
+
+    $this->get('/queue?kind=links')->assertOk()->assertDontSee('wire:click="scanMailbox"', false);
+    $this->get('/linkedin')->assertRedirect('/mail-leads');
+});
+
 it('fails clearly when the mailbox is not configured', function (): void {
     config(['mailscan.username' => null, 'mailscan.password' => null]);
     expect(fn () => (new MailboxReader)->recent())->toThrow(RuntimeException::class, __('jobs.mail_not_configured'));
     Queue::fake();
-    Livewire::test('pages::queue')->call('scanMailbox')->assertSee(__('jobs.mail_not_configured'));
+    Livewire::test('pages::linkedin')->call('scanMailbox')->assertSee(__('jobs.mail_not_configured'));
     Queue::assertNotPushed(ScanMailboxJob::class);
 });
 
-it('queues a mailbox scan from the log page when configured', function (): void {
+it('queues a mailbox scan from Mail leads when configured', function (): void {
     Queue::fake();
     config(['mailscan.username' => 'me@example.test', 'mailscan.password' => 'app-password']);
-    Livewire::test('pages::queue')->call('scanMailbox')->assertSee(__('jobs.mail_scan_queued'));
+    Livewire::test('pages::linkedin')->call('scanMailbox')->assertSee(__('jobs.mail_scan_queued'));
     Queue::assertPushed(ScanMailboxJob::class);
 });
 
@@ -142,4 +153,10 @@ it('dry run lists the links without recording emails or queueing checks', functi
     fakeMailbox([fakeMail('<d@x>', '', ALERT)]);
     $this->artisan('mail:scan --dry-run')->expectsOutputToContain('https://www.linkedin.com/jobs/view/4469238554')->assertSuccessful();
     expect(MailMessage::query()->count())->toBe(0)->and(LinkCheck::query()->count())->toBe(0)->and(LinkedInLink::query()->count())->toBe(0);
+});
+
+it('shows the sign-in banner and retries failed links', function (): void {
+    $link = LinkedInLink::query()->create(['job_id' => '1', 'url' => 'https://www.linkedin.com/jobs/view/1/', 'status' => LinkedInLink::FAILED, 'scan_error' => 'LinkedIn asked for a sign-in: run bin/linkedin-scan --login']);
+    Livewire::test('pages::linkedin')->assertSee(__('jobs.linkedin_needs_sign_in'))->call('retryFailed')->assertDontSee(__('jobs.linkedin_needs_sign_in'));
+    expect($link->refresh()->status)->toBe(LinkedInLink::QUEUED);
 });

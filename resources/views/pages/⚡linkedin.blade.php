@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Jobs\ScanMailboxJob;
 use App\Models\LinkedInLink;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -13,6 +14,17 @@ new #[Layout('layouts.app')] class extends Component
     public array $selected = [];
 
     public string $message = '';
+
+    public function scanMailbox(): void
+    {
+        if (blank(config('mailscan.username')) || blank(config('mailscan.password'))) {
+            $this->message = __('jobs.mail_not_configured');
+
+            return;
+        }
+        ScanMailboxJob::dispatch();
+        $this->message = __('jobs.mail_scan_queued');
+    }
 
     public function queueSelected(): void
     {
@@ -33,6 +45,13 @@ new #[Layout('layouts.app')] class extends Component
         $this->message = trans_choice('jobs.linkedin_queued', $queued, ['count' => $queued]);
     }
 
+    public function retryFailed(): void
+    {
+        $count = LinkedInLink::query()->where('status', LinkedInLink::FAILED)->update(['status' => LinkedInLink::QUEUED, 'scan_error' => null]);
+        unset($this->links, $this->needsSignIn);
+        $this->message = trans_choice('jobs.linkedin_queued', $count, ['count' => $count]);
+    }
+
     public function dismissLink(int $id): void
     {
         LinkedInLink::query()->whereKey($id)->whereIn('status', [LinkedInLink::NEW, LinkedInLink::FAILED])->update(['status' => LinkedInLink::DISMISSED]);
@@ -47,6 +66,12 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     #[Computed]
+    public function needsSignIn(): bool
+    {
+        return LinkedInLink::query()->where('status', LinkedInLink::FAILED)->where('scan_error', 'like', '%asked for a sign-in%')->exists();
+    }
+
+    #[Computed]
     public function waiting(): int
     {
         return LinkedInLink::query()->whereIn('status', [LinkedInLink::QUEUED, LinkedInLink::SCANNING])->count();
@@ -58,15 +83,18 @@ new #[Layout('layouts.app')] class extends Component
     <div class="page-heading">
         <div>
             <div class="eyebrow">{{ __('jobs.workspace') }}</div>
-            <h1>{{ __('jobs.linkedin_title') }}</h1>
-            <p>{{ __('jobs.linkedin_intro') }}</p>
+            <h1>{{ __('jobs.mail_leads_title') }}</h1>
+            <p>{{ __('jobs.mail_leads_intro') }}</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
+            <flux:button wire:click="scanMailbox" icon="envelope" wire:loading.attr="disabled" wire:target="scanMailbox">{{ __('jobs.mail_scan') }}</flux:button>
+            <flux:button wire:click="retryFailed" icon="arrow-path">{{ __('jobs.linkedin_retry_failed') }}</flux:button>
             <flux:button wire:click="$set('selected', [])" :disabled="$selected === []">{{ __('jobs.linkedin_clear_selection') }}</flux:button>
             <flux:button wire:click="queueSelected" variant="primary" icon="play" :disabled="$selected === []">{{ __('jobs.linkedin_scan_selected') }}</flux:button>
         </div>
     </div>
     @if($message)<div class="success-message" role="status">{{ $message }}</div>@endif
+    @if($this->needsSignIn)<div class="validation-summary" role="alert">{{ __('jobs.linkedin_needs_sign_in') }}</div>@endif
 
     <section class="panel">
         <div class="section-heading">
