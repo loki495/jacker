@@ -215,6 +215,19 @@ sync_general_resume() {
     fi
 }
 
+# Fill request, stub stage: opens the job's application link in the visible filler window (tools/form-filler) and reports back. Nothing is
+# filled yet and nothing is ever submitted. The window is started in its own session so it outlives this worker; closing it ends the process.
+# Needs the display variables from the systemd unit (or the desktop shell), node, and `npm install` run once in tools/form-filler.
+# $1 request id, $2 application link.
+fill_one() {
+    local id="$1" url="$2" node="${FILLER_NODE:-node}" script="${FILLER_SCRIPT:-$APP_DIR/tools/form-filler/launch.mjs}"
+    usable_url "$url" || { artisan agent:complete "$id" --fail --message="the job has no usable web link"; return 0; }
+    [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] || { artisan agent:complete "$id" --fail --message="the worker has no display for the filler window"; return 0; }
+    [ -d "$(dirname "$script")/node_modules" ] || { artisan agent:complete "$id" --fail --message="run npm install in tools/form-filler first"; return 0; }
+    setsid "$node" "$script" "$url" >/dev/null 2>&1 </dev/null &
+    artisan agent:complete "$id" --message="The form is open in a visible window. Nothing is filled or submitted yet."
+}
+
 work_one() {
     local job id kind
     ready || return 1
@@ -226,6 +239,7 @@ work_one() {
     case "$kind" in
         scrape) scrape_one "$id" ;;
         apply) apply_one "$id" "$(jq -r .opportunity_id <<<"$job")" "$(jq -r '.url // empty' <<<"$job")" "$(jq -r '.company // empty' <<<"$job")" "$(jq -r '.title // empty' <<<"$job")" ;;
+        fill) fill_one "$id" "$(jq -r '.url // empty' <<<"$job")" ;;
         *) artisan agent:complete "$id" --fail --message="unknown request kind" ;;
     esac
 }

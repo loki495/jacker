@@ -1,0 +1,10 @@
+{
+  "name": "jacker-form-filler",
+  "private": true,
+  "type": "module",
+  "description": "Host-side application form filler: opens a job's form in a visible Chromium window, fills it and leaves it open for the owner to review and submit. Never submits.",
+  "scripts": { "test": "node --test" },
+  "dependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}

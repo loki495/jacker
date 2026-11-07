@@ -8,6 +8,7 @@ use App\Actions\FindRelatedContent;
 use App\Actions\MarkMaterialsUsed;
 use App\Actions\QueueLinkChecks;
 use App\Actions\RequestAgentApply;
+use App\Actions\RequestAgentFill;
 use App\Actions\RequestLetterSuggestions;
 use App\Actions\RequestScoring;
 use App\Actions\SaveCoverLetter;
@@ -180,6 +181,23 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('message', $apply->handle($this->opportunity) instanceof AiRequest ? __('jobs.apply_queued') : __('jobs.apply_unavailable'));
     }
 
+    public function openForm(RequestAgentFill $fill): void
+    {
+        session()->flash('message', $fill->handle($this->opportunity) instanceof AiRequest ? __('jobs.fill_queued') : __('jobs.fill_unavailable'));
+    }
+
+    #[Computed]
+    public function fillPending(): bool
+    {
+        return app(RequestAgentFill::class)->pending($this->opportunity);
+    }
+
+    #[Computed]
+    public function fillRun(): ?AiRequest
+    {
+        return AiRequest::query()->where('kind', AiRequest::KIND_FILL)->where('opportunity_id', $this->opportunity->id)->latest('id')->first();
+    }
+
     public function confirmApplyLink(RequestAgentApply $apply): void
     {
         $apply->confirmLink($this->opportunity);
@@ -239,7 +257,7 @@ new #[Layout('layouts.app')] class extends Component
         </dl></section>
         @foreach(['benefits','responsibilities','requirements'] as $field)<section class="panel detail-panel"><h2>{{ __('jobs.'.$field) }}</h2>@if($job->listItems($field))<ul class="detail-list">@foreach($job->listItems($field) as $item)<li>{{ $item }}</li>@endforeach</ul>@else<p class="preserve-text">{{ __('jobs.nothing_added') }}</p>@endif</section>@endforeach
         <section class="panel detail-panel"><h2>{{ __('jobs.notes') }}</h2><p class="preserve-text">{{ $job->notes ?: __('jobs.nothing_added') }}</p></section>
-        <section class="panel detail-panel materials" id="materials" @if($this->letterPending || $this->applyPending) wire:poll.5s @endif><h2>{{ __('materials.heading') }}</h2><p class="field-hint">{{ __('materials.intro') }}</p>
+        <section class="panel detail-panel materials" id="materials" @if($this->letterPending || $this->applyPending || $this->fillPending) wire:poll.5s @endif><h2>{{ __('materials.heading') }}</h2><p class="field-hint">{{ __('materials.intro') }}</p>
             <div class="badges" role="tablist">@foreach(['resume' => 'tab_resume', 'letter' => 'tab_letter'] as $key => $label)<flux:button role="tab" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" wire:click="$set('tab', '{{ $key }}')" :variant="$tab === $key ? 'primary' : 'ghost'">{{ __('materials.'.$label) }}</flux:button>@endforeach</div>
             @foreach(['resume' => 'resumeBody', 'letter' => 'letterBody'] as $kind => $model)
             @if($tab === $kind)
@@ -271,6 +289,11 @@ new #[Layout('layouts.app')] class extends Component
                 <h3>{{ __('materials.run_title') }}</h3><p class="field-hint">{{ __('jobs.apply_hint') }}</p>
                 @if($this->applyRun)<p><span class="status-badge link-{{ $this->applyRun->status->value }}">{{ $this->applyRun->status->label() }}</span> {{ $this->applyRun->message }}</p>@endif
                 @if(app(App\Actions\RequestAgentApply::class)->needsLinkConfirmation($job))<p role="alert">{{ __('jobs.apply_link_confirm', ['url' => $job->application_url]) }}</p><button type="button" wire:click="confirmApplyLink" class="archive-button">{{ __('jobs.apply_link_confirm_button') }}</button>@elseif(App\Support\AgentWorker::online() && app(App\Actions\RequestAgentApply::class)->eligible($job))<button type="button" wire:click="generateApplication" class="archive-button" wire:loading.attr="disabled" @disabled($this->applyPending)>{{ $this->applyPending ? __('jobs.apply_working') : __('jobs.apply_run') }}</button>@endif
+            @endif
+            @if((App\Support\AgentWorker::online() && app(App\Actions\RequestAgentApply::class)->isPublic($job) && ! app(App\Actions\RequestAgentApply::class)->needsLinkConfirmation($job)) || $this->fillRun)
+                <h3>{{ __('jobs.fill_title') }}</h3><p class="field-hint">{{ __('jobs.fill_hint') }}</p>
+                @if($this->fillRun)<p><span class="status-badge link-{{ $this->fillRun->status->value }}">{{ $this->fillRun->status->label() }}</span> {{ $this->fillRun->message }}</p>@endif
+                @if(App\Support\AgentWorker::online())<button type="button" wire:click="openForm" class="archive-button" wire:loading.attr="disabled" @disabled($this->fillPending)>{{ $this->fillPending ? __('jobs.fill_working') : __('jobs.fill_run') }}</button>@endif
             @endif
         </section>
         @if($job->extra_fields)<section class="panel detail-panel"><h2>{{ __('jobs.extra_fields') }}</h2><dl class="detail-facts">@foreach($job->extra_fields as $key => $value)<div><dt>{{ ucfirst(str_replace('_', ' ', $key)) }}</dt><dd>{{ $value ?? '—' }}</dd></div>@endforeach</dl></section>@endif

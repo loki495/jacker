@@ -40,6 +40,8 @@ class AiRequest extends Model
 
     public const KIND_APPLY = 'apply';
 
+    public const KIND_FILL = 'fill';
+
     #[\Override]
     protected $guarded = ['id', 'created_at', 'updated_at'];
 

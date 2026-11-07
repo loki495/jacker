@@ -5,6 +5,9 @@ After=docker.service
 [Service]
 Type=simple
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Display access for the fill button's visible browser window; adjust if the desktop session is not :0.
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=%t
 ExecStart=%h/www/personal/jacker/bin/agent-worker --loop
 Restart=always
 RestartSec=10
