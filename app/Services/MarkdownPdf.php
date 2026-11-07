@@ -42,7 +42,8 @@ final class MarkdownPdf
             throw new InvalidArgumentException(__('pdf.banned', ['word' => $found[0]]));
         }
 
-        File::ensureDirectoryExists(storage_path('fonts'));
+        // Dompdf reads its font cache path from config, which can differ from storage_path() (tests move storage to a temp dir).
+        File::ensureDirectoryExists((string) config('dompdf.options.font_dir', storage_path('fonts')));
         $html = Str::markdown($markdown, ['html_input' => 'escape', 'allow_unsafe_links' => false]);
         $html = (string) preg_replace('/<img\b[^>]*>/i', '', $html);
 
