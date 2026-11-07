@@ -133,3 +133,9 @@ it('queues a rescan for an imported link that has no external apply link', funct
     Livewire::test('pages::linkedin')->call('rescan', $link->id);
     expect($link->refresh()->status)->toBe(LinkedInLink::QUEUED);
 });
+
+it('syncs ticked links as they are ticked so the Scan selected button enables', function (): void {
+    $link = linkedinLink(['status' => LinkedInLink::NEW]);
+    Livewire::test('pages::linkedin')->assertSeeHtml('wire:model.live="selected"')->set('selected', [(string) $link->id])->call('queueSelected');
+    expect($link->refresh()->status)->toBe(LinkedInLink::QUEUED);
+});

@@ -122,7 +122,7 @@ new #[Layout('layouts.app')] class extends Component
                     <tr wire:key="link-{{ $link->id }}">
                         <td>
                             @if(in_array($link->status, ['new', 'failed'], true))
-                                <input type="checkbox" wire:model="selected" value="{{ $link->id }}" aria-label="{{ __('jobs.linkedin_select', ['title' => $link->title ?: $link->url]) }}">
+                                <input type="checkbox" wire:model.live="selected" value="{{ $link->id }}" aria-label="{{ __('jobs.linkedin_select', ['title' => $link->title ?: $link->url]) }}">
                             @endif
                         </td>
                         <td><a class="underline" href="{{ $link->url }}" target="_blank" rel="noopener">{{ $link->title ?: $link->job_id }}</a></td>
