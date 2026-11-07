@@ -10,6 +10,7 @@ use App\Enums\PayPeriod;
 use App\Enums\WorkArrangement;
 use App\Models\AiRequest;
 use App\Models\Opportunity;
+use App\Support\ApplicationUrl;
 
 final readonly class CompleteAiRequest
 {
@@ -28,7 +29,7 @@ final readonly class CompleteAiRequest
     public function handle(AiRequest $request, string $output): void
     {
         $request->output = mb_substr($output, 0, (int) config('ai.max_output_chars'));
-        $fields = $this->fields($output);
+        $fields = $this->fields($output, (string) $request->linkCheck->page_text);
         if ($fields === []) {
             $this->fail($request, __('jobs.ai_bad_output'));
 
@@ -44,13 +45,28 @@ final readonly class CompleteAiRequest
                 }
             }
         }
-        $this->applier->applyFields($request->linkCheck, $fields, self::REPLACEABLE);
+        $replace = self::REPLACEABLE;
+        $original = $opportunity instanceof Opportunity ? $opportunity->application_url : null;
+        if (isset($fields['application_url'])) {
+            $current = (string) parse_url((string) $original, PHP_URL_HOST);
+            $taken = Opportunity::query()->where('normalized_application_url', ApplicationUrl::normalize($fields['application_url']))->whereKeyNot($opportunity->id ?? 0)->exists();
+            // Only a missing or LinkedIn address is replaced; a link the owner set stays, and a duplicate would fail the whole fill.
+            if ($taken || ($original !== null && $original !== '' && ! str_ends_with(strtolower($current), 'linkedin.com'))) {
+                unset($fields['application_url']);
+            } else {
+                $replace[] = 'application_url';
+            }
+        }
+        $this->applier->applyFields($request->linkCheck, $fields, $replace);
+        if ($opportunity instanceof Opportunity && in_array('application_url', $request->linkCheck->filled ?? [], true) && filled($original)) {
+            $opportunity->refresh()->update(['extra_fields' => [...($opportunity->extra_fields ?? []), 'LinkedIn posting' => $original]]);
+        }
         $replaced = array_intersect_key($previous, array_flip($request->linkCheck->filled ?? []));
         $request->update(['status' => LinkCheckStatus::Done, 'message' => $request->linkCheck->message, 'replaced' => $replaced ?: null, 'finished_at' => now()]);
     }
 
     /** @return array<string, mixed> */
-    private function fields(string $output): array
+    private function fields(string $output, string $pageText): array
     {
         $start = strpos($output, '{');
         $end = strrpos($output, '}');
@@ -69,6 +85,11 @@ final readonly class CompleteAiRequest
             if ($value !== null && $value->value !== 'unspecified') {
                 $fields[$key] = $value->value;
             }
+        }
+        $apply = $json['application_url'] ?? null;
+        if (is_string($apply) && filter_var($apply, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $apply) === 1
+            && ! str_ends_with(strtolower((string) parse_url($apply, PHP_URL_HOST)), 'linkedin.com') && str_contains($pageText, $apply)) {
+            $fields['application_url'] = $apply;
         }
         foreach (['salary_min', 'salary_max'] as $key) {
             if (is_numeric($json[$key] ?? null) && $json[$key] >= 0) {

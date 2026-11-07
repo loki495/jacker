@@ -203,3 +203,34 @@ it('puts a fresh unguessable token in the page markers and defuses marker-like t
     preg_match('/<<<PAGE-([0-9a-f]{24})>>>/', $second, $two);
     expect($one[1])->not->toBe($two[1])->and(substr_count($first, "<<<END-PAGE-{$one[1]}>>>"))->toBe(2)->and($first)->toContain('< < <END-PAGE-0000> > >');
 });
+
+function applyUrlRun(string $existingUrl, string $pageText, array $output): Opportunity
+{
+    $job = Opportunity::query()->create(['title' => 'Dev', 'company' => 'Acme', 'application_url' => $existingUrl, 'normalized_application_url' => $existingUrl, 'source' => 'test']);
+    $check = noDataCheck($job);
+    $check->update(['page_text' => $pageText]);
+    $request = app(RequestAiExtraction::class)->handle($check);
+    $request->update(['status' => LinkCheckStatus::Running]);
+    app(CompleteAiRequest::class)->handle($request->load('linkCheck'), json_encode($output + ['benefits' => 'Pizza']));
+
+    return $job->refresh();
+}
+
+it('asks for the employer apply link but never a linkedin one or a guess', function (): void {
+    app(RequestAiExtraction::class)->handle(noDataCheck());
+    $prompt = app(ClaimAiRequest::class)->handle()['prompt'];
+    expect($prompt)->toContain('application_url')->toContain('not a linkedin.com address')->toContain('never build or guess one');
+});
+
+it('replaces a linkedin application link with the employer link found in the text and keeps the posting', function (): void {
+    $job = applyUrlRun('https://www.linkedin.com/jobs/view/1', 'Apply at https://acme.test/jobs/7 today', ['application_url' => 'https://acme.test/jobs/7']);
+    expect($job->application_url)->toBe('https://acme.test/jobs/7')->and($job->extra_fields['LinkedIn posting'])->toBe('https://www.linkedin.com/jobs/view/1')->and($job->benefits)->toBe('Pizza');
+});
+
+it('ignores a link that is not in the text, is a linkedin address, or would replace the owner\'s own link', function (): void {
+    $invented = applyUrlRun('https://www.linkedin.com/jobs/view/2', 'No links here', ['application_url' => 'https://acme.test/made-up']);
+    $linkedin = applyUrlRun('https://www.linkedin.com/jobs/view/3', 'See https://www.linkedin.com/jobs/view/9', ['application_url' => 'https://www.linkedin.com/jobs/view/9']);
+    $own = applyUrlRun('https://careers.acme.test/1', 'Apply at https://other.test/2', ['application_url' => 'https://other.test/2']);
+    expect($invented->application_url)->toBe('https://www.linkedin.com/jobs/view/2')->and($linkedin->application_url)->toBe('https://www.linkedin.com/jobs/view/3')
+        ->and($own->application_url)->toBe('https://careers.acme.test/1')->and($own->benefits)->toBe('Pizza');
+});

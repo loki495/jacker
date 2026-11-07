@@ -13,7 +13,8 @@ final class ClaimAiRequest
 {
     private const string FIELDS = 'title, company, company_url, location, benefits, responsibilities, requirements, hours, '
         .'work_arrangement (remote|on_site|hybrid), employment_type (full_time|part_time|contract|freelance|temporary|internship), '
-        .'salary_min, salary_max (plain numbers), currency (3-letter code), pay_period (hour|day|week|month|year), salary_notes';
+        .'salary_min, salary_max (plain numbers), currency (3-letter code), pay_period (hour|day|week|month|year), salary_notes, '
+        .'application_url (the employer\'s own apply link, only if that exact address is written in the text and it is not a linkedin.com address; never build or guess one)';
 
     /** @return array{id: int, chain: list<array{agent: string, model: string}>, prompt: string}|null */
     public function handle(?int $id = null, AiDriver $driver = AiDriver::Bridge): ?array
