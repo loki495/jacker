@@ -18,7 +18,7 @@ final class AgentComplete extends Command
 
     public function handle(): int
     {
-        $request = AiRequest::query()->whereIn('kind', [AiRequest::KIND_SCRAPE, AiRequest::KIND_APPLY])->find((int) $this->argument('id'));
+        $request = AiRequest::query()->whereIn('kind', [AiRequest::KIND_SCRAPE, AiRequest::KIND_APPLY, AiRequest::KIND_FILL])->find((int) $this->argument('id'));
         if (! $request instanceof AiRequest || $request->status !== LinkCheckStatus::Running) {
             $this->error('No running agent request with that id.');
 

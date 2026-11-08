@@ -74,6 +74,32 @@ it('claims a fill request after apply and prints its kind', function (): void {
     expect($fill->refresh()->status)->toBe(LinkCheckStatus::Running);
 });
 
+it('completes a running fill request through the real completion command', function (bool $failed, LinkCheckStatus $status): void {
+    $this->freezeSecond();
+    $fill = AiRequest::query()->create(['kind' => AiRequest::KIND_FILL, 'opportunity_id' => fillJob()->id, 'driver' => AiDriver::Bridge, 'agent' => 'claude', 'status' => LinkCheckStatus::Running]);
+    $message = $failed ? 'The filler could not open a window.' : 'The form is open in a visible window.';
+
+    $this->artisan('agent:complete', ['id' => $fill->id, '--message' => $message, '--fail' => $failed])->assertSuccessful();
+
+    expect($fill->refresh()->status)->toBe($status)
+        ->and($fill->message)->toBe($message)
+        ->and($fill->finished_at?->equalTo(now()))->toBeTrue();
+})->with([
+    'opened form' => [false, LinkCheckStatus::Done],
+    'failed launch' => [true, LinkCheckStatus::Failed],
+]);
+
+it('refuses to complete a queued fill request without changing it', function (): void {
+    $fill = AiRequest::query()->create(['kind' => AiRequest::KIND_FILL, 'opportunity_id' => fillJob()->id, 'driver' => AiDriver::Bridge, 'agent' => 'claude', 'message' => 'Waiting for the worker.']);
+    $original = $fill->refresh()->getAttributes();
+
+    $this->artisan('agent:complete', ['id' => $fill->id, '--message' => 'Must not be saved.', '--fail' => true])
+        ->expectsOutputToContain('No running agent request with that id.')
+        ->assertFailed();
+
+    expect($fill->refresh()->getAttributes())->toBe($original);
+});
+
 it('fails a claimed fill request whose link is no longer public instead of starting a window', function (): void {
     $job = fillJob();
     $fill = AiRequest::query()->create(['kind' => AiRequest::KIND_FILL, 'opportunity_id' => $job->id, 'driver' => AiDriver::Bridge, 'agent' => 'claude']);
