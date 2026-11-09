@@ -59,4 +59,13 @@ return [
     'work_mode' => 'Points per work arrangement (1 to 5)',
     'bands_invalid' => 'Each pay band must look like "120000 = 3", with points from 1 to 5.',
     'bands_floor' => 'Add a band with a floor of 0.',
+    'search_title' => 'Search profile',
+    'search_intro' => 'Plain text that search sessions read before looking for listings: who you are and which jobs you want. Only this text, your name and location, your profile links and the grading criteria below are shared; email, phone and resumes are not.',
+    'search_label' => 'About me and the jobs I want',
+    'search_save' => 'Save search profile',
+    'search_saved' => 'Search profile saved.',
+    'search_too_long' => 'The text is longer than the limit.',
+    'search_managed' => 'This text is managed from Dibs record :id (SEARCH_PROFILE_DIBS_ID). Edit it there and run bin/profile-sync to refresh it.',
+    'search_source' => 'Source: :source. Last saved :when.',
+    'search_empty' => 'Nothing saved yet.',
 ];

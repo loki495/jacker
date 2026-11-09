@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'purpose_info' => 'This description.',
+    'purpose_known' => 'Every listing already tracked: id, application_url, company, title, status and missing (the fields a POST could still fill). Query: page, per_page, only_missing=1.',
+    'purpose_upsert' => 'Create listings or fill empty fields; body {"listings": [ {...}, ... ]}.',
+    'purpose_mcp' => 'The same capabilities as an MCP server (Streamable HTTP, JSON-RPC over POST) with the same bearer token.',
+    'mcp_instructions' => 'Job listing intake for a private job tracker. Call get_search_profile to learn who the owner is and which jobs they want, and get_listing_schema for the fields. Then call list_known_listings (only_missing=true) to see which tracked listings still lack fields, then upsert_listings with listings you found or completed. Existing values are never overwritten; only empty fields are filled.',
+    'compatibility' => 'Within v1 changes only add: new optional fields, new response keys, new endpoints. Compare schema_version to see them. A removed or renamed field, or a changed meaning or response shape, ships as /api/v2 with v1 kept alongside. Ignore response keys you do not know.',
+    'purpose_profile' => 'Who the owner is and which jobs they want: free text, name, location, profile links, how listings are scored and the regions accepted. Read it before searching and again when version changes.',
+    'profile_scoring_note' => 'How the owner ranks listings after you find them: skill fit from the rubric, desirability from pay and work mode. Use it to prefer roles that rank well; do not edit it.',
+    'profile_set_invalid' => 'The text is longer than :max characters, or the source label is not a short lowercase token.',
+    'duplicate_rule' => 'A listing whose application_url matches an existing one (scheme and host lowercased, trailing slash and fragment ignored) is not created again. Only fields that are still empty on the existing listing are filled; nothing already set, and none of the owner-controlled fields, is ever changed.',
+    'extra_fields_note' => 'Any other facts the listing carries (posted date, team size, tech stack, perks...). Send them as extra_fields name/value pairs and they are stored and shown on the listing. Names already present are kept.',
+    'ignored_note' => 'Keys not listed under fields are reported back per item in ignored and discarded. Status, applied state, scores, follow-up dates and archiving belong to the owner and are never accepted.',
+    'fields' => [
+        'company' => 'Employer name. Required to create; never changed on an existing listing.',
+        'application_url' => 'Link to the posting or application page, http or https. Required; the duplicate key.',
+        'title' => 'Job title.',
+        'source' => 'Where the listing was found (board or feed name).',
+        'company_url' => 'Employer website, http or https.',
+        'location' => 'Location text as the posting states it.',
+        'remote_restrictions' => 'Region or timezone limits on remote work, for example "US only" or "Eastern hours".',
+        'responsibilities' => 'Duties of the role; one item per line or separated by semicolons.',
+        'requirements' => 'Required skills and experience; one item per line or separated by semicolons.',
+        'benefits' => 'Benefits and perks; one item per line or separated by semicolons.',
+        'hours' => 'Working hours or schedule.',
+        'contact' => 'Recruiter or hiring contact.',
+        'notes' => 'Free-text notes from the finder.',
+        'salary_notes' => 'Pay text as written, including anything that did not fit the numeric fields.',
+        'salary_min' => 'Lower pay bound as a number. Salary fields are filled together only while the listing has no salary.',
+        'salary_max' => 'Upper pay bound as a number, not below salary_min.',
+        'currency' => 'Three-letter ISO 4217 code, default USD.',
+        'pay_period' => 'Period the pay figures cover.',
+        'employment_type' => 'Kind of employment.',
+        'work_arrangement' => 'Remote, hybrid or on-site.',
+        'deadline' => 'Application deadline as YYYY-MM-DD.',
+        'extra_fields' => 'Additional name/value facts, strings only.',
+    ],
+];

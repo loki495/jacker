@@ -12,6 +12,7 @@ use App\Support\CoverLetterSettings;
 use App\Support\EmbeddingSettings;
 use App\Support\ProfileLinks;
 use App\Support\ScoringSettings;
+use App\Support\SearchProfile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -53,6 +54,8 @@ new #[Layout('layouts.app')] class extends Component
     public array $aiFeatures = [];
 
     public bool $embeddingsEnabled = false;
+
+    public string $searchProfile = '';
 
     public string $message = '';
 
@@ -100,6 +103,14 @@ new #[Layout('layouts.app')] class extends Component
             ProfileLinks::save($site, trim($this->{$site}));
         }
         $this->message = __('settings.profile_saved');
+    }
+
+    public function saveSearchProfile(): void
+    {
+        abort_if(SearchProfile::dibsId() !== null, 403);
+        $this->validate(['searchProfile' => ['nullable', 'string', 'max:'.(int) config('searchprofile.max_chars')]], [], ['searchProfile' => __('settings.search_label')]);
+        SearchProfile::save($this->searchProfile);
+        $this->message = __('settings.search_saved');
     }
 
     public function saveContact(): void
@@ -177,8 +188,14 @@ new #[Layout('layouts.app')] class extends Component
         return $bands;
     }
 
+    public function searchSavedAt(): ?string
+    {
+        return \App\Models\Setting::query()->find('profile.search')?->updated_at?->timezone(config('app.timezone'))->format('M j, Y g:i a');
+    }
+
     private function load(): void
     {
+        $this->searchProfile = SearchProfile::text();
         $this->embeddingsEnabled = EmbeddingSettings::enabled();
         foreach (AiSettings::FEATURES as $feature) {
             $this->aiFeatures[$feature] = AiSettings::feature($feature);
@@ -214,6 +231,21 @@ new #[Layout('layouts.app')] class extends Component
         </div>
         <flux:button type="submit" variant="primary">{{ __('settings.profile_save') }}</flux:button>
     </form>
+    @if (SearchProfile::dibsId() !== null)
+        <section class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+            <flux:heading size="lg" level="2">{{ __('settings.search_title') }}</flux:heading>
+            <flux:text>{{ __('settings.search_managed', ['id' => SearchProfile::dibsId()]) }}</flux:text>
+            <flux:text>{{ __('settings.search_source', ['source' => SearchProfile::source(), 'when' => $this->searchSavedAt() ?? '-']) }}</flux:text>
+            <pre class="search-profile-text">{{ $searchProfile !== '' ? $searchProfile : __('settings.search_empty') }}</pre>
+        </section>
+    @else
+        <form wire:submit="saveSearchProfile" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
+            <flux:heading size="lg" level="2">{{ __('settings.search_title') }}</flux:heading>
+            <flux:text>{{ __('settings.search_intro') }}</flux:text>
+            <div><flux:textarea wire:model="searchProfile" rows="12" :label="__('settings.search_label')" />@error('searchProfile') <p role="alert" class="text-red-700">{{ $message }}</p> @enderror</div>
+            <flux:button type="submit" variant="primary">{{ __('settings.search_save') }}</flux:button>
+        </form>
+    @endif
     <form wire:submit="saveContact" class="space-y-4 rounded-2xl border border-zinc-200 p-5">
         <flux:heading size="lg" level="2">{{ __('letter.contact_title') }}</flux:heading>
         <flux:text>{{ __('letter.contact_intro') }}</flux:text>

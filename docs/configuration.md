@@ -8,6 +8,10 @@ Before an approved HTTPS deployment, set `APP_ENV=production`, `APP_DEBUG=false`
 
 The last trusted proxy must supply the client-facing HTTPS scheme and port, including when a tunnel connects to the proxy over HTTP. Laravel must recognize the request itself as secure so that signed upload URLs validate correctly. Forcing only the URL generator's scheme is insufficient. Keep exactly one router per hostname and entrypoint; use service-only Docker labels when central Traefik files own the routers.
 
+`API_TOKEN` enables the bearer-token listing API (see `docs/api.md`); leave it empty to keep the API off. `API_MAX_BATCH` (default 50), `API_MAX_PAGE` (listings per page of the known-links list, default 500) and `API_RATE_LIMIT` (requests a minute, default 60) bound it. `API_URL_TOKEN` (optional, off when empty) is a second secret used only as a path segment of `/api/v1/mcp/<key>` for clients that cannot send headers. The tokens authenticate `/api/*` only; the rest of the application keeps its no-login model.
+
+`SEARCH_PROFILE_DIBS_ID` (optional) names the local Dibs record that `bin/profile-sync` copies into the search profile served by `/api/v1/profile`; leave it empty to edit the text on the Settings page. The Jacker container never contacts Dibs.
+
 `CSV_MAX_BYTES` defaults to 5,242,880 and `CSV_MAX_ROWS` to 1,000. Both are read through `config/csv.php`. CSV uploads remain on private storage and are removed on successful import or replacement; see the CSV guide for abandoned uploads.
 
 SQLite defaults to `database/database.sqlite`. Back up the database together with `.env` and persistent uploads using a consistent SQLite backup process; test restores before relying on backups. Do not commit the database, secrets, or personal job data.

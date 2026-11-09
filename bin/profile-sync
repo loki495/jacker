@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Copies the Dibs record named by SEARCH_PROFILE_DIBS_ID (Jacker's .env, or the first argument) into the
+# search profile that /api/v1/profile serves. Dibs is read through its host CLI; the Jacker container never
+# talks to Dibs. Run it again whenever the record changes.
+set -euo pipefail
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+dibs=${DIBS_COMPOSE:-$HOME/www/personal/dibs/docker-compose.yml}
+id=${1:-$(grep -E '^SEARCH_PROFILE_DIBS_ID=' "$root/.env" | tail -1 | cut -d= -f2- | tr -d "\"' " || true)}
+[[ $id =~ ^[0-9]+$ ]] || { echo "profile-sync: no Dibs id (set SEARCH_PROFILE_DIBS_ID in .env or pass one)" >&2; exit 1; }
+
+body=$(docker compose -f "$dibs" exec -T -u www-data app php artisan todo:agent:show "$id" | jq -er '.body')
+printf '%s' "$body" | docker exec -i --user www-data "${JACKER_CONTAINER:-jacker-app}" php artisan profile:set --source="dibs:$id"

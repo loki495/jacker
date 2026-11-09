@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- API call log (`storage/logs/api-*.log`, no secrets or contents) and a `ping` route for checking that a remote client really reaches the server.
+- MCP at a secret URL (`/api/v1/mcp/<API_URL_TOKEN>`) for connector UIs that cannot send an Authorization header.
+- Search profile: a Settings section (or a Dibs record copied in by `bin/profile-sync`) served with the grading criteria, name, location and links by `GET /api/v1/profile` and the `get_search_profile` MCP tool.
+- Listing API (`/api/v1`): `GET /info` describes the accepted fields, `GET /listings` lists known links with their missing fields, `POST /mcp` serves the same as an MCP server, and `POST /listings` creates listings or fills only the empty fields of a known application link, behind a bearer token (`API_TOKEN`, off by default). See `docs/api.md`.
 - Mail leads: read-only IMAP scan of job alert emails (on demand and every 30 minutes from the scheduler), kept LinkedIn alert links scanned in a signed-in browser by a host reader, AI split of the scanned posting, and an apply-link confirmation before the agent apply run.
 - Installable PWA with iOS pull-to-refresh; `csv:import` command for headless import.
 - Application materials: one detail-page section with Resume and Cover letter tabs (Markdown editing, preview, PDF download, version picker with generated, edited and general resume), a Markdown to PDF renderer (Liberation Sans, real text layer), and Mark as used, which freezes the chosen PDFs and records the choice; the three new columns export read-only in CSV and are ignored on import.

@@ -20,6 +20,9 @@ abstract class TestCase extends BaseTestCase
         // Tests never read or write the real storage/app/agent (the host worker syncs the general resume there).
         $app->useStoragePath(sys_get_temp_dir().'/jacker-test-storage-'.getmypid());
 
+        // The api log channel path was resolved before the storage move; keep test lines out of the real log.
+        $app['config']->set('logging.channels.api.path', $app->storagePath('logs/api.log'));
+
         return $app;
     }
 }
