@@ -17,6 +17,8 @@ return [
         '/\bpage (you are|you\'re) looking for (could not|cannot|can\'t|does not|doesn\'t)\b/i',
         '/^\s*(error )?404\b/i',
     ],
+    // Days before a listing is enriched again by listings:enrich.
+    'enrich_cooldown_days' => (int) env('LINKCHECK_ENRICH_COOLDOWN_DAYS', 7),
     'max_redirects' => 5,
     'user_agent' => env('LINKCHECK_USER_AGENT', 'Mozilla/5.0 (compatible; JobsTracker personal link checker)'),
 ];

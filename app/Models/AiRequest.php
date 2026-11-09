@@ -28,6 +28,8 @@ use Illuminate\Support\Carbon;
  */
 class AiRequest extends Model
 {
+    public const MODE_FILL_ONLY = 'fill_only';
+
     public const KIND_EXTRACT = 'extract';
 
     public const KIND_RENDER = 'render';

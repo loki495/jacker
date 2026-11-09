@@ -24,7 +24,7 @@ The `about` text is edited in **Settings → Search profile**. If `SEARCH_PROFIL
 
 ## `GET /api/v1/listings`
 
-Every tracked listing that has an application link: `id`, `application_url`, `company`, `title`, `status` and `missing`, the fields a POST could still fill (pay appears as `salary_min` and `salary_max` while the listing has none). Query: `page`, `per_page` (up to `API_MAX_PAGE`, default 500), `only_missing=1`. A finder compares its results to this list, skips known links that miss nothing it has, and sends the rest.
+Every tracked listing that has an application link: `id`, `application_url`, `company`, `title`, `status` and `missing`, the fields a POST could still fill (pay appears as `salary_min` and `salary_max` while the listing has none). Query: `page`, `per_page` (up to `API_MAX_PAGE`, default 500), `only_missing=1`. A finder compares its results to this list, skips known links that miss nothing it has, and sends the rest. The gaps that `only_missing` reports are the ones `php artisan listings:enrich` works on, which checks those links and fills their empty fields from the page.
 
 ## `POST /api/v1/listings`
 

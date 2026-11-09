@@ -118,6 +118,12 @@ class Opportunity extends Model
         return $this->hasOne(Resume::class);
     }
 
+    /** @return HasMany<LinkCheck, $this> */
+    public function linkChecks(): HasMany
+    {
+        return $this->hasMany(LinkCheck::class);
+    }
+
     /** @return HasMany<OpportunityEvent, $this> */
     public function events(): HasMany
     {

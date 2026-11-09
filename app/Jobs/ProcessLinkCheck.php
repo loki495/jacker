@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Actions\RequestAiExtraction;
 use App\Actions\RunLinkCheck;
 use App\Enums\LinkCheckStatus;
+use App\Enums\LinkResult;
+use App\Models\AiRequest;
 use App\Models\LinkCheck;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -21,7 +24,7 @@ final class ProcessLinkCheck implements ShouldQueue
 
     public function __construct(public int $linkCheckId) {}
 
-    public function handle(RunLinkCheck $action): void
+    public function handle(RunLinkCheck $action, ?RequestAiExtraction $extract = null): void
     {
         $check = LinkCheck::query()->find($this->linkCheckId);
         if ($check?->status !== LinkCheckStatus::Queued) {
@@ -35,6 +38,12 @@ final class ProcessLinkCheck implements ShouldQueue
                 throw $exception;
             }
             report($exception);
+
+            return;
+        }
+        $check->refresh();
+        if ($check->enrich && $check->status === LinkCheckStatus::Done && in_array($check->result, [LinkResult::Ok, LinkResult::Blocked], true)) {
+            ($extract ?? app(RequestAiExtraction::class))->handle($check, AiRequest::MODE_FILL_ONLY);
         }
     }
 }

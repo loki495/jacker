@@ -27,14 +27,14 @@ final class QueueLinkChecks
     }
 
     /** @param Collection<int, Opportunity> $opportunities */
-    public function forOpportunities(Collection $opportunities): int
+    public function forOpportunities(Collection $opportunities, bool $enrich = false): int
     {
         $queued = 0;
         foreach ($opportunities as $opportunity) {
             if ($opportunity->application_url === null || $this->pending(LinkCheck::query()->where('opportunity_id', $opportunity->id))) {
                 continue;
             }
-            $this->enqueue(LinkCheck::KIND_CHECK, $opportunity->application_url, $opportunity->id, $queued++);
+            $this->enqueue(LinkCheck::KIND_CHECK, $opportunity->application_url, $opportunity->id, $queued++, $enrich);
         }
 
         return $queued;
@@ -66,9 +66,9 @@ final class QueueLinkChecks
         return $query->whereIn('status', array_map(fn (LinkCheckStatus $status): string => $status->value, self::PENDING))->exists();
     }
 
-    private function enqueue(string $kind, string $url, ?int $opportunityId, int $position): void
+    private function enqueue(string $kind, string $url, ?int $opportunityId, int $position, bool $enrich = false): void
     {
-        $check = LinkCheck::query()->create(['kind' => $kind, 'url' => $url, 'opportunity_id' => $opportunityId, 'status' => LinkCheckStatus::Queued]);
+        $check = LinkCheck::query()->create(['kind' => $kind, 'url' => $url, 'opportunity_id' => $opportunityId, 'status' => LinkCheckStatus::Queued, 'enrich' => $enrich]);
         ProcessLinkCheck::dispatch($check->id)->delay(now()->addSeconds($position * (int) config('linkcheck.spacing')));
     }
 }

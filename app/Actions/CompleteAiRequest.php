@@ -36,8 +36,9 @@ final readonly class CompleteAiRequest
             return;
         }
         $opportunity = $request->linkCheck->opportunity;
+        $fillOnly = $request->mode === AiRequest::MODE_FILL_ONLY;
         $previous = [];
-        if ($opportunity instanceof Opportunity) {
+        if (! $fillOnly && $opportunity instanceof Opportunity) {
             foreach (self::REPLACEABLE as $key) {
                 $old = $opportunity->getAttribute($key);
                 if (isset($fields[$key]) && filled($old) && $old !== $fields[$key]) {
@@ -45,13 +46,13 @@ final readonly class CompleteAiRequest
                 }
             }
         }
-        $replace = self::REPLACEABLE;
+        $replace = $fillOnly ? [] : self::REPLACEABLE;
         $original = $opportunity instanceof Opportunity ? $opportunity->application_url : null;
         if (isset($fields['application_url'])) {
             $current = (string) parse_url((string) $original, PHP_URL_HOST);
             $taken = Opportunity::query()->where('normalized_application_url', ApplicationUrl::normalize($fields['application_url']))->whereKeyNot($opportunity->id ?? 0)->exists();
             // Only a missing or LinkedIn address is replaced; a link the owner set stays, and a duplicate would fail the whole fill.
-            if ($taken || ($original !== null && $original !== '' && ! str_ends_with(strtolower($current), 'linkedin.com'))) {
+            if ($taken || ($fillOnly && filled($original)) || ($original !== null && $original !== '' && ! str_ends_with(strtolower($current), 'linkedin.com'))) {
                 unset($fields['application_url']);
             } else {
                 $replace[] = 'application_url';

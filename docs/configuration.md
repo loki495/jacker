@@ -22,6 +22,8 @@ Set `APP_TIMEZONE` to your local IANA timezone for status-history timestamps and
 
 Mail uses the log driver. Queues use the database driver and the `queue` compose service (`php artisan queue:work`) processes link checks; with `QUEUE_CONNECTION=sync` they run inline instead. Outbound requests include job discovery, link checks and rendering, and explicitly enabled AI providers. No notifications are configured. The mailbox scan reads `MAIL_SCAN_HOST`, `MAIL_SCAN_PORT`, `MAIL_SCAN_USERNAME`, `MAIL_SCAN_PASSWORD`, `MAIL_SCAN_FOLDER`, `MAIL_SCAN_DAYS` and `MAIL_SCAN_MAX` (see `config/mailscan.php`); the `scheduler` compose service schedules it only when username and password are set. The LinkedIn reader uses `LINKEDIN_SCAN_DELAY_MIN`/`MAX`.
 
+`LINKCHECK_ENRICH_COOLDOWN_DAYS` (default `7`) sets how long `php artisan listings:enrich` waits before it checks the same listing again. A listing is skipped while it has an enrich check created within that many days. `0` allows a check on every run. See the enrich entry in `docs/features.md`.
+
 ## AI processing
 
 The Settings page selects **Host bridge** (the default) or **Provider API** separately for page extraction, job grading, and cover-letter suggestions. Saving these preferences sends nothing; subsequent AI actions use them. Requests already queued keep their saved driver and API model. The host cover-letter agent/model/thinking controls apply only to the bridge.

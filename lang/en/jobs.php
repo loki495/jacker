@@ -377,4 +377,7 @@ return [
     'apply_bad_link' => 'The application link is not a public web address.',
     'apply_file_resume' => 'Resume (PDF)',
     'apply_file_letter' => 'Cover letter (PDF)',
+    'enrich_bad_limit' => 'The limit must be a whole number from 1 to 50.',
+    'enrich_summary' => ':candidates listing(s) to enrich, :queued queued, :linkedin LinkedIn link(s) skipped.',
+    'enrich_gone_heading' => 'Found gone (status not changed)',
 ];

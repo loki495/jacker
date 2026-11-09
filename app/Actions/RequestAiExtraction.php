@@ -16,7 +16,7 @@ final readonly class RequestAiExtraction
     public function __construct(private RequestPageRender $render) {}
 
     /** Queues one extraction for a link check, preceded by a browser render of its link when it has one, so the model reads the rendered text; null when there is neither saved text nor a renderable link, or an extraction is already pending. */
-    public function handle(LinkCheck $check): ?AiRequest
+    public function handle(LinkCheck $check, ?string $mode = null): ?AiRequest
     {
         $pending = AiRequest::query()->where('link_check_id', $check->id)->where('kind', AiRequest::KIND_EXTRACT)->whereIn('status', [LinkCheckStatus::Queued, LinkCheckStatus::Running])->exists();
         if ($pending) {
@@ -31,6 +31,7 @@ final readonly class RequestAiExtraction
         $request = AiRequest::query()->create([
             'link_check_id' => $check->id,
             'kind' => AiRequest::KIND_EXTRACT,
+            'mode' => $mode,
             ...AiSettings::requestAttributes('extract', (string) config('ai.agent'), (string) config('ai.model')),
         ]);
         if ($request->driver === AiDriver::Sdk) {

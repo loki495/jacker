@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Actions;
 
 use App\Models\Opportunity;
+use App\Support\ListingGaps;
 use App\Support\ListingSchema;
-use Illuminate\Database\Eloquent\Builder;
 
 final class ListKnownListings
 {
@@ -18,7 +18,7 @@ final class ListKnownListings
         $perPage = max(1, min($perPage, (int) config('api.max_page')));
         $query = Opportunity::query()->whereNotNull('normalized_application_url')->orderBy('id');
         if ($onlyMissing) {
-            $query->where(fn (Builder $q): Builder => $this->anyMissing($q));
+            $query->where(ListingGaps::apply(...));
         }
         $paginator = $query->paginate($perPage, page: max(1, $page));
 
@@ -36,26 +36,5 @@ final class ListKnownListings
                 'missing' => ListingSchema::missing($o),
             ])->values()->all(),
         ];
-    }
-
-    /**
-     * @param  Builder<Opportunity>  $query
-     * @return Builder<Opportunity>
-     */
-    private function anyMissing(Builder $query): Builder
-    {
-        $enums = ['employment_type', 'work_arrangement'];
-        foreach (ListingSchema::names() as $name) {
-            if (in_array($name, [...ListingSchema::IDENTITY, 'extra_fields', 'currency', 'pay_period', 'salary_min', 'salary_max'], true)) {
-                continue;
-            }
-            match (true) {
-                in_array($name, $enums, true) => $query->orWhere($name, 'unspecified'),
-                $name === 'deadline' => $query->orWhereNull($name),
-                default => $query->orWhereNull($name)->orWhere($name, ''),
-            };
-        }
-
-        return $query->orWhere(fn (Builder $q): Builder => $q->whereNull('salary_min')->whereNull('salary_max'));
     }
 }

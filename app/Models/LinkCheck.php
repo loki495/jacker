@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $opportunity_id
  * @property string $kind
  * @property string $url
+ * @property bool $enrich
  * @property LinkCheckStatus $status
  * @property LinkResult|null $result
  * @property int|null $http_status
@@ -43,6 +44,7 @@ class LinkCheck extends Model
         return [
             'status' => LinkCheckStatus::class,
             'result' => LinkResult::class,
+            'enrich' => 'boolean',
             'filled' => 'array',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',

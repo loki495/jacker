@@ -148,7 +148,7 @@ final readonly class RunLinkCheck
         if ($check->kind !== LinkCheck::KIND_SAVED) {
             $opportunity?->forceFill(['link_status' => $result->value, 'link_checked_at' => now()])->saveQuietly();
         }
-        if ($result === LinkResult::Dead && $opportunity?->has_applied === false && in_array($opportunity->status, [OpportunityStatus::Saved, OpportunityStatus::Preparing], true)) {
+        if ($result === LinkResult::Dead && ! $check->enrich && $opportunity?->has_applied === false && in_array($opportunity->status, [OpportunityStatus::Saved, OpportunityStatus::Preparing], true)) {
             $this->close->handle($opportunity, OpportunityStatus::Closed);
         }
     }

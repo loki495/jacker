@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Listing enrichment: `php artisan listings:enrich` queues link checks for listings with empty fields (LinkedIn links skipped), reads each page with a fill-only AI pass after an ok or blocked check, and reports dead links without closing them. `LINKCHECK_ENRICH_COOLDOWN_DAYS` (default 7) sets how often a listing is retried. See `docs/features.md`.
 - API call log (`storage/logs/api-*.log`, no secrets or contents) and a `ping` route for checking that a remote client really reaches the server.
 - MCP at a secret URL (`/api/v1/mcp/<API_URL_TOKEN>`) for connector UIs that cannot send an Authorization header.
 - Search profile: a Settings section (or a Dibs record copied in by `bin/profile-sync`) served with the grading criteria, name, location and links by `GET /api/v1/profile` and the `get_search_profile` MCP tool.
